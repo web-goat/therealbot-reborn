@@ -1,6 +1,7 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { config } from './config.js';
 import { registerMessageCreateEvent } from './events/messageCreate.js';
+import { registerMessageDeleteEvent } from './events/messageDelete.js';
 import { registerReadyEvent } from './events/ready.js';
 import { initializeAutotalkState } from './utils/autotalkState.js';
 
@@ -17,5 +18,6 @@ const client = new Client({
 
 registerReadyEvent(client);
 registerMessageCreateEvent(client);
+registerMessageDeleteEvent(client);
 
 await client.login(config.token);

@@ -3,10 +3,21 @@ import { config } from '../config.js';
 import { commandMap } from '../utils/commandRegistry.js';
 import { getInterjection } from '../utils/interjections.js';
 import { isAutotalkEnabledForChannel } from '../utils/autotalkState.js';
+import { cacheMessage } from '../utils/snitchStore.js';
 
 export function registerMessageCreateEvent(client: Client): void {
     client.on(Events.MessageCreate, async (message) => {
         if (message.author.bot || !message.guild) return;
+
+        cacheMessage({
+            messageId: message.id,
+            authorId: message.author.id,
+            authorTag: message.author.tag,
+            channelId: message.channel.id,
+            channelName: 'name' in message.channel ? message.channel.name ?? 'unbekannt' : 'unbekannt',
+            content: message.content,
+            createdAt: message.createdTimestamp,
+        });
 
         if (!message.content.startsWith(config.prefix)) {
             if (isAutotalkEnabledForChannel(message.channel.id)) {
