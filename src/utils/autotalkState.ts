@@ -9,7 +9,7 @@ interface AutotalkStateData {
 const AUTOTALK_STATE_FILE = 'autotalk-state.json';
 
 const defaultState: AutotalkStateData = {
-    enabledChannelIds: [],
+    enabledChannelIds: ['701181911342645358', '507825214529208321', '735107466525671486'],
     randomChance: 0.3,
     cooldownMs: 10_000,
 };
