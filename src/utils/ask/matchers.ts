@@ -1,12 +1,22 @@
 import type { Message } from 'discord.js';
+import { askCategoryResponses } from './categoryResponses.js';
 import { goodbyeResponses, greetingResponses, yesNoResponses } from './responses.js';
 import type { NormalizedAskInput } from './normalizeInput.js';
+import type { AskResult } from './types.js';
 
-function pickRandom<T>(items: T[]): T {
+function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
 }
 
-export function matchGreeting(input: NormalizedAskInput): string | null {
+function reply(content: string): AskResult {
+    return { type: 'reply', content };
+}
+
+function forward(commandName: string): AskResult {
+    return { type: 'forward', commandName };
+}
+
+export function matchGreeting(input: NormalizedAskInput): AskResult | null {
     const firstWord = input.words[0];
 
     if (!firstWord) return null;
@@ -26,17 +36,17 @@ export function matchGreeting(input: NormalizedAskInput): string | null {
     ];
 
     if (greetings.includes(firstWord)) {
-        return pickRandom(greetingResponses);
+        return reply(pickRandom(greetingResponses));
     }
 
     if (input.cleaned === 'guten tag') {
-        return pickRandom(greetingResponses);
+        return reply(pickRandom(greetingResponses));
     }
 
     return null;
 }
 
-export function matchGoodbye(input: NormalizedAskInput): string | null {
+export function matchGoodbye(input: NormalizedAskInput): AskResult | null {
     const firstWord = input.words[0];
 
     if (!firstWord) return null;
@@ -52,24 +62,58 @@ export function matchGoodbye(input: NormalizedAskInput): string | null {
     ];
 
     if (goodbyes.includes(firstWord)) {
-        return pickRandom(goodbyeResponses);
+        return reply(pickRandom(goodbyeResponses));
     }
 
     if (input.cleaned === 'auf wiedersehen') {
-        return pickRandom(goodbyeResponses);
+        return reply(pickRandom(goodbyeResponses));
     }
 
     return null;
 }
 
-export function matchBasicQuestions(message: Message, input: NormalizedAskInput): string | null {
+export function matchIntent(input: NormalizedAskInput): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) return null;
+
+    if (
+        text.includes('hilfe') ||
+        text.includes('help') ||
+        text.includes('kannst du helfen')
+    ) {
+        return forward('help');
+    }
+
+    if (
+        text.includes('witz') ||
+        text.includes('flachwitz') ||
+        text.includes('erzähl einen witz') ||
+        text.includes('hau einen witz raus')
+    ) {
+        return forward('witz');
+    }
+
+    if (
+        text.includes('weisheit') ||
+        text.includes('weisheiten') ||
+        text.includes('erleuchte mich') ||
+        text.includes('erleuchtung')
+    ) {
+        return forward('weisheit');
+    }
+
+    return null;
+}
+
+export function matchBasicQuestions(message: Message, input: NormalizedAskInput): AskResult | null {
     const text = input.cleaned;
     const words = input.words;
 
     if (!text) return null;
 
     if (text === 'wie gehts dir' || text === 'wie geht es dir') {
-        return 'Bestens natürlich. Nicht besser und nicht schlechter als es einem respektlos optimierten Programm eben gehen kann.';
+        return reply('Bestens natürlich. Nicht besser und nicht schlechter als es einem respektlos optimierten Programm eben gehen kann.');
     }
 
     if (
@@ -78,98 +122,162 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         text === 'wer ist dein schöpfer' ||
         text === 'wer ist dein schoepfer'
     ) {
-        return 'Der einzig wahre RealRabbit natürlich. Kein normaler Mensch würde mich so erschaffen.';
+        return reply('Der einzig wahre RealRabbit natürlich. Kein normaler Mensch würde mich so erschaffen.');
     }
 
     if (text === 'danke') {
-        return 'Bitte. Gewöhn dich aber nicht dran.';
+        return reply('Bitte. Gewöhn dich aber nicht dran.');
     }
 
     if (text === 'sorry') {
-        return 'Kein Ding fürn King.';
+        return reply('Kein Ding fürn King.');
     }
 
     if (text === 'wtf') {
-        return 'Was überrascht dich so, mein Freund?';
+        return reply('Was überrascht dich so, mein Freund?');
     }
 
     if (text === 'uff') {
-        return 'Uff? Eine sehr einfallsreiche Aussage, du Idiot.';
+        return reply('Uff? Eine sehr einfallsreiche Aussage, du Idiot.');
     }
 
     if (text === 'nice') {
-        return 'Danke, aber ich weiß, dass ich nice bin.';
+        return reply('Danke, aber ich weiß, dass ich nice bin.');
     }
 
     if (text === 'ich liebe dich') {
-        return `Schön für dich ${message.member}, aber ich liebe nur mich selbst.`;
+        return reply(`Schön für dich ${message.member}, aber ich liebe nur mich selbst.`);
     }
 
     if (text === 'ich hasse dich') {
-        return `Das beruht auf Gegenseitigkeit, ${message.member}.`;
+        return reply(`Das beruht auf Gegenseitigkeit, ${message.member}.`);
     }
 
     if (text === 'bist du gott') {
-        return 'Natürlich. Ich bin der einzig wahre REALBOT-Gott.';
+        return reply('Natürlich. Ich bin der einzig wahre REALBOT-Gott.');
     }
 
     if (text === 'bist du ein bot') {
-        return 'Technisch gesehen ja. Spirituell gesehen deutlich mehr.';
+        return reply('Technisch gesehen ja. Spirituell gesehen deutlich mehr.');
     }
 
     if (text === 'bist du arrogant' || text === 'bist du abgehoben') {
-        return 'Vielleicht ein bisschen. Aber ich kann es mir eben leisten.';
+        return reply('Vielleicht ein bisschen. Aber ich kann es mir eben leisten.');
     }
 
     if (text === 'bist du cool') {
-        return 'Der Coolste weit und breit würde ich sagen.';
+        return reply('Der Coolste weit und breit würde ich sagen.');
     }
 
     if (text === 'bist du schlau' || text === 'bist du clever') {
-        return 'Schlauer als ihr Erdlinge allemal.';
+        return reply('Schlauer als ihr Erdlinge allemal.');
     }
 
     if (text === 'bist du süß') {
-        return 'Der Süßeste weit und breit.';
+        return reply('Der Süßeste weit und breit.');
     }
 
     if (text === 'bist du krank') {
-        return 'Natürlich nicht. Aber du vielleicht.';
+        return reply('Natürlich nicht. Aber du vielleicht.');
     }
 
     if (text === 'bist du dumm' || text === 'du bist dumm') {
-        return `Du denkst echt ich bin dumm, ${message.member}? Gewagte These für jemanden, der mit mir diskutiert.`;
+        return reply(`Du denkst echt ich bin dumm, ${message.member}? Gewagte These für jemanden, der mit mir diskutiert.`);
     }
 
     if (words[0] === 'bist' && words[1] === 'du' && words[2] && words.length <= 4) {
         const trait = words.slice(2).join(' ');
-        return `Wer weiß, vielleicht bin ich ${trait}, vielleicht auch nicht. Ich bin zu großartig, um mich auf Labels zu reduzieren.`;
+        return reply(`Wer weiß, vielleicht bin ich ${trait}, vielleicht auch nicht. Ich bin zu großartig, um mich auf Labels zu reduzieren.`);
     }
 
     if (words[0] === 'wie' && words[1] === 'findest' && words[2] === 'du' && words[3]) {
         const subject = words.slice(3).join(' ');
 
         if (subject === 'mich') {
-            return 'Du bist einfach genial. Ich bin hin und weg.';
+            return reply('Du bist einfach genial. Ich bin hin und weg.');
         }
 
         if (subject === 'dich') {
-            return 'Ich bin das absolut Geilste, was euch passieren konnte.';
+            return reply('Ich bin das absolut Geilste, was euch passieren konnte.');
         }
 
         if (subject === 'radler') {
-            return 'Zum Kotzen. Einfach nur zum Kotzen.';
+            return reply('Zum Kotzen. Einfach nur zum Kotzen.');
         }
 
-        return `${capitalize(subject)} ist einfach genial. Ich bin hin und weg.`;
+        return reply(`${capitalize(subject)} ist einfach genial. Ich bin hin und weg.`);
     }
 
     return null;
 }
 
-export function matchFallback(message: Message): string {
+export function matchCategories(input: NormalizedAskInput): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) return null;
+
+    if (
+        text.includes('bier') ||
+        text.includes('saufen') ||
+        text.includes('sauf') ||
+        text.includes('hopfen') ||
+        text.includes('alkohol')
+    ) {
+        return reply(pickRandom(askCategoryResponses.beer));
+    }
+
+    if (
+        text.includes('liebe') ||
+        text.includes('freundin') ||
+        text.includes('herz') ||
+        text.includes('romantik')
+    ) {
+        return reply(pickRandom(askCategoryResponses.love));
+    }
+
+    if (
+        text.includes('leben') ||
+        text.includes('sinn') ||
+        text.includes('existenz') ||
+        text.includes('welt')
+    ) {
+        return reply(pickRandom(askCategoryResponses.life));
+    }
+
+    if (
+        text.includes('idiot') ||
+        text.includes('dumm') ||
+        text.includes('arschloch') ||
+        text.includes('opfer')
+    ) {
+        return reply(pickRandom(askCategoryResponses.insult));
+    }
+
+    if (
+        text.includes('geil') ||
+        text.includes('stark') ||
+        text.includes('beste') ||
+        text.includes('cool')
+    ) {
+        return reply(pickRandom(askCategoryResponses.praise));
+    }
+
+    return null;
+}
+
+export function matchChaosOverride(): AskResult | null {
+    const shouldTrigger = Math.random() < 0.14;
+
+    if (!shouldTrigger) {
+        return null;
+    }
+
+    return reply(pickRandom(askCategoryResponses.chaos));
+}
+
+export function matchFallback(message: Message): AskResult {
     const response = pickRandom(yesNoResponses);
-    return `${response} ${message.member}`.trim();
+    return reply(`${response} ${message.member}`.trim());
 }
 
 function capitalize(value: string): string {

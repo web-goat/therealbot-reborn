@@ -27,6 +27,16 @@ export const helpCommand: Command = {
                     value: 'Beantwortet Fragen und kommentiert dein Dasein.',
                     inline: false,
                 },
+                {
+                    name: `${config.prefix}witz`,
+                    value: 'Erzählt einen Witz.',
+                    inline: false,
+                },
+                {
+                    name: `${config.prefix}weisheit`,
+                    value: 'Liefert fragwürdige Erleuchtung.',
+                    inline: false,
+                },
             )
             .setFooter({
                 text: 'TheRealBot – respektlos optimiert',
