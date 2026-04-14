@@ -39,6 +39,18 @@ export function cacheMessage(input: {
     });
 }
 
+export function updateCachedMessage(messageId: string, newContent: string): void {
+    const existing = messageCache.get(messageId);
+
+    if (!existing) return;
+    if (!newContent.trim()) return;
+
+    messageCache.set(messageId, {
+        ...existing,
+        content: newContent,
+    });
+}
+
 export function getCachedMessage(messageId: string): CachedMessage | null {
     return messageCache.get(messageId) ?? null;
 }
