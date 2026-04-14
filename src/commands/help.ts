@@ -37,6 +37,11 @@ export const helpCommand: Command = {
                     value: 'Liefert fragwürdige Erleuchtung.',
                     inline: false,
                 },
+                {
+                    name: `${config.prefix}autotalk`,
+                    value: 'Steuert ungefragte Bot-Kommentare pro Channel.',
+                    inline: false,
+                },
             )
             .setFooter({
                 text: 'TheRealBot – respektlos optimiert',

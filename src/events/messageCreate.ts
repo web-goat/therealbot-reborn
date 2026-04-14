@@ -1,11 +1,24 @@
 import { Events, type Client } from 'discord.js';
 import { config } from '../config.js';
 import { commandMap } from '../utils/commandRegistry.js';
+import { getInterjection } from '../utils/interjections.js';
+import { isAutotalkEnabledForChannel } from '../utils/autotalkState.js';
 
 export function registerMessageCreateEvent(client: Client): void {
     client.on(Events.MessageCreate, async (message) => {
         if (message.author.bot || !message.guild) return;
-        if (!message.content.startsWith(config.prefix)) return;
+
+        if (!message.content.startsWith(config.prefix)) {
+            if (isAutotalkEnabledForChannel(message.channel.id)) {
+                const interjection = getInterjection(message.content);
+
+                if (interjection) {
+                    await message.reply(interjection);
+                }
+            }
+
+            return;
+        }
 
         const args = message.content
             .slice(config.prefix.length)

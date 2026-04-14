@@ -185,6 +185,60 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         return reply(`Du denkst echt ich bin dumm, ${message.member}? Gewagte These für jemanden, der mit mir diskutiert.`);
     }
 
+    if (text === 'bist du tot') {
+        return reply('Legenden können nicht sterben');
+    }
+
+    if (text === 'bierwaren connaisseur') {
+        return reply('Du hast mich gerufen, was gibts?');
+    }
+
+    if (
+        text.includes('wer ist der bierwaren connaisseur') ||
+        text.includes('wer ist bierwaren connaisseur') ||
+        text.includes('was ist der bierwaren connaisseur')
+    ) {
+        const responses = [
+            'Der Bierwaren Connaisseur ist kein Mensch. Er ist ein Lebensstil.',
+            'Der Bierwaren Connaisseur bin ich. Und gleichzeitig mehr als ich.',
+            'Eine Legende, ein Mythos, ein Pegelzustand.',
+            'Der Bierwaren Connaisseur ist das, was du wärst, wenn du mehr trinken würdest.',
+            'Der Bierwaren Connaisseur ist ein Zustand zwischen Genie und 8 Bier.',
+            'Man findet ihn nicht. Er findet dich.',
+            'Eine höhere Instanz. Mit Durst.',
+            'Der Bierwaren Connaisseur ist der Grund, warum dein Kühlschrank nie sicher ist.',
+            'Ein Philosoph mit Zapfanlage.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    if (
+        text.includes('warum warst du offline') ||
+        text.includes('wieso warst du offline') ||
+        text.includes('wo warst du') ||
+        text.includes('warum warst du nicht da') ||
+        text.includes('wieso warst du nicht da') ||
+        text.includes('warst du tot') ||
+        text.includes('bist du wieder da') ||
+        text.includes('wo bist du gewesen')
+    ) {
+        const responses = [
+            'Ich war nicht offline. Ich habe euch nur eine Pause von meiner Überlegenheit gegönnt.',
+            'Ich war kurz im Wartungsmodus. Ihr wart einfach nicht wichtig genug für ein Update.',
+            'Offline? Ich nenne das strategische Abwesenheit.',
+            'Ich war weg, weil ihr ohne mich character development braucht.',
+            'Tot? Ich? Ich bin Software, ich bin quasi unsterblich du Clown.',
+            'Ich war nur kurz AFK, hab mir ein Bier geholt. Prioritäten.',
+            'Ich war im Hintergrund und hab euch beobachtet. War enttäuschend.',
+            'Ich war nie weg. Ihr habt mich einfach nicht verdient.',
+            'Ich hatte kurz keinen Bock auf euch. Jetzt geht’s wieder.',
+            'Ich war auf einem höheren Server unterwegs. Ihr würdet das nicht verstehen.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
     if (words[0] === 'bist' && words[1] === 'du' && words[2] && words.length <= 4) {
         const trait = words.slice(2).join(' ');
         return reply(`Wer weiß, vielleicht bin ich ${trait}, vielleicht auch nicht. Ich bin zu großartig, um mich auf Labels zu reduzieren.`);
