@@ -1,4 +1,4 @@
-import { autotalkConfig } from './autotalkState.js';
+import { getAutotalkConfig } from './autotalkState.js';
 
 const randomComments = [
     'Starke Aussage. Inhaltlich dünn, aber stark.',
@@ -47,8 +47,9 @@ function pickRandom<T>(items: T[]): T {
 
 export function getInterjection(content: string): string | null {
     const now = Date.now();
+    const { cooldownMs, randomChance } = getAutotalkConfig();
 
-    if (now - lastInterjectionAt < autotalkConfig.cooldownMs) {
+    if (now - lastInterjectionAt < cooldownMs) {
         return null;
     }
 
@@ -63,7 +64,7 @@ export function getInterjection(content: string): string | null {
         }
     }
 
-    const shouldRandomlyInterject = Math.random() < autotalkConfig.randomChance;
+    const shouldRandomlyInterject = Math.random() < randomChance;
 
     if (!shouldRandomlyInterject) {
         return null;

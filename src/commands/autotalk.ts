@@ -1,10 +1,12 @@
 import type { Command } from '../types/command.js';
 import {
-    autotalkConfig,
     disableAutotalkForChannel,
     enableAutotalkForChannel,
+    getAutotalkConfig,
     getEnabledAutotalkChannelCount,
     isAutotalkEnabledForChannel,
+    setAutotalkChance,
+    setAutotalkCooldown,
 } from '../utils/autotalkState.js';
 
 export const autotalkCommand: Command = {
@@ -14,26 +16,27 @@ export const autotalkCommand: Command = {
     async execute(message, args) {
         const subcommand = args[0]?.toLowerCase();
         const channelId = message.channel.id;
+        const { randomChance, cooldownMs } = getAutotalkConfig();
 
         if (!subcommand) {
             const status = isAutotalkEnabledForChannel(channelId) ? 'AN' : 'AUS';
 
             await message.reply(
                 `Autotalk ist hier aktuell **${status}**.\nChance: **${Math.round(
-                    autotalkConfig.randomChance * 100,
-                )}%**\nCooldown: **${autotalkConfig.cooldownMs / 1000}s**\nAktive Channels insgesamt: **${getEnabledAutotalkChannelCount()}**`,
+                    randomChance * 100,
+                )}%**\nCooldown: **${cooldownMs / 1000}s**\nAktive Channels insgesamt: **${getEnabledAutotalkChannelCount()}**`,
             );
             return;
         }
 
         if (subcommand === 'on') {
-            enableAutotalkForChannel(channelId);
+            await enableAutotalkForChannel(channelId);
             await message.reply('Autotalk ist in diesem Channel jetzt AN. Möge der Terror beginnen.');
             return;
         }
 
         if (subcommand === 'off') {
-            disableAutotalkForChannel(channelId);
+            await disableAutotalkForChannel(channelId);
             await message.reply('Autotalk ist in diesem Channel jetzt AUS. Langweilig, aber okay.');
             return;
         }
@@ -46,7 +49,7 @@ export const autotalkCommand: Command = {
                 return;
             }
 
-            autotalkConfig.randomChance = value / 100;
+            await setAutotalkChance(value);
             await message.reply(`Autotalk-Chance auf **${value}%** gesetzt. Ihr wolltet es so.`);
             return;
         }
@@ -59,7 +62,7 @@ export const autotalkCommand: Command = {
                 return;
             }
 
-            autotalkConfig.cooldownMs = value * 1000;
+            await setAutotalkCooldown(value);
             await message.reply(`Autotalk-Cooldown auf **${value} Sekunden** gesetzt.`);
             return;
         }
