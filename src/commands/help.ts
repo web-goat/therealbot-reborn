@@ -9,7 +9,7 @@ export const helpCommand: Command = {
     async execute(message) {
         const embed = new EmbedBuilder()
             .setTitle('HILFE | Befehlsliste')
-            .setDescription('Hier sind die aktuell verfügbaren Befehle.')
+            .setDescription('Hier sind die aktuell verfügbaren Befehle. Nutze sie weise. Oder gar nicht.')
             .setColor(0xfbc02d)
             .addFields(
                 {
@@ -39,12 +39,18 @@ export const helpCommand: Command = {
                 },
                 {
                     name: `${config.prefix}autotalk`,
-                    value: 'Steuert ungefragte Bot-Kommentare pro Channel.',
+                    value:
+                        'Steuert ungefragte Bot-Kommentare.\n' +
+                        `\`${config.prefix}autotalk\` → Status anzeigen\n` +
+                        `\`${config.prefix}autotalk on\` → Aktivieren im Channel\n` +
+                        `\`${config.prefix}autotalk off\` → Deaktivieren\n` +
+                        `\`${config.prefix}autotalk chance <0-100>\` → Wahrscheinlichkeit setzen\n` +
+                        `\`${config.prefix}autotalk cooldown <sek>\` → Cooldown setzen`,
                     inline: false,
                 },
             )
             .setFooter({
-                text: 'TheRealBot – respektlos optimiert',
+                text: 'TheRealBot – nervt jetzt auch ungefragt',
             })
             .setTimestamp();
 
