@@ -9,20 +9,26 @@ import {
     formatJoinDate,
     rankDefinitions,
 } from '../utils/rankUtils.js';
-import { getRandomRoast } from '../utils/roastUtils.js';
+import { getVisibleChannelStats } from '../utils/memberStatsUtils.js';
+import { getStatsFooterComment } from '../utils/statsCommentUtils.js';
 
 function getTargetMember(message: Message): GuildMember | null {
     return message.mentions.members?.first() ?? message.member;
 }
 
 function isCreator(userId: string): boolean {
-    // 👉 HIER DEINE USER ID EINTRAGEN
-    return userId === process.env.CREATOR_ID;
+    const creatorId = process.env.CREATOR_ID?.trim();
+
+    if (!creatorId) {
+        return false;
+    }
+
+    return userId === creatorId;
 }
 
 export const statsCommand: Command = {
     name: 'stats',
-    aliases: ['statistik', 'userstats'],
+    aliases: ['statistik', 'userstats', 'status'],
     description: 'Zeigt detaillierte Stats eines Users an.',
     async execute(message) {
         const member = getTargetMember(message);
@@ -39,6 +45,9 @@ export const statsCommand: Command = {
 
         const rank = getRankResult(member.joinedAt);
         const creator = isCreator(member.id);
+        const visibleChannels = getVisibleChannelStats(member);
+        const totalChannelsInGuild = member.guild.channels.cache.size;
+        const percent = Math.round((visibleChannels.totalVisible / totalChannelsInGuild) * 100);
 
         const embed = new EmbedBuilder()
             .setTitle(`STATS | ${member.displayName}`)
@@ -64,12 +73,31 @@ export const statsCommand: Command = {
                     name: 'Fortschritt',
                     value: rank.nextRank
                         ? `Noch ${rank.daysUntilNextRank} Tage bis **${rank.nextRank.title}**`
-                        : 'Maximalstufe erreicht. Du hast kein Leben.',
+                        : 'Maximalstufe erreicht. Du hast offiziell kein Leben.',
                     inline: false,
+                },
+                {
+                    name: 'Sichtbare Channels',
+                    value: `${visibleChannels.totalVisible} / ${totalChannelsInGuild} (${percent}%)`,
+                    inline: true,
+                },
+                {
+                    name: 'Davon Textkanäle',
+                    value: `${visibleChannels.textVisible}`,
+                    inline: true,
+                },
+                {
+                    name: 'Davon Voicekanäle',
+                    value: `${visibleChannels.voiceVisible}`,
+                    inline: true,
                 },
             )
             .setFooter({
-                text: getRandomRoast(creator),
+                text: getStatsFooterComment({
+                    isCreator: creator,
+                    visibleChannels: visibleChannels.totalVisible,
+                    totalChannelsInGuild,
+                }),
             })
             .setTimestamp();
 
