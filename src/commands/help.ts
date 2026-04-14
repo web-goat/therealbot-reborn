@@ -22,6 +22,11 @@ export const helpCommand: Command = {
                     value: 'Testet, ob ich noch lebe.',
                     inline: false,
                 },
+                {
+                    name: `${config.prefix}ask | ${config.prefix}talk`,
+                    value: 'Beantwortet Fragen und kommentiert dein Dasein.',
+                    inline: false,
+                },
             )
             .setFooter({
                 text: 'TheRealBot – respektlos optimiert',
