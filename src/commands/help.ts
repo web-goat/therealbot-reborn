@@ -53,6 +53,11 @@ export const helpCommand: Command = {
                     value: 'Zeigt deinen Rang oder den Rang eines erwähnten Users an.',
                     inline: false,
                 },
+                {
+                    name: `${config.prefix}stats | ${config.prefix}statistik`,
+                    value: 'Zeigt detaillierte Stats eines Users inkl. Bewertung meines Urteils.',
+                    inline: false,
+                },
             )
             .setFooter({
                 text: 'TheRealBot – nervt jetzt auch ungefragt',
