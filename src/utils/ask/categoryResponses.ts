@@ -41,4 +41,25 @@ export const askCategoryResponses = {
         'Das ist mir zu anstrengend. Ich urteile trotzdem.',
         'Starke Frage. Inhaltlich katastrophal, aber stark.',
     ],
+    why: [
+        'Warum? Warum ist die Banane krumm? Nächste dumme Frage.',
+        'Weil das Universum dich persönlich hasst. Reicht dir das?',
+        'Darauf antworte ich aus Prinzip nicht ordentlich.',
+        'Weil es lustig ist, dich verwirrt zu sehen.',
+        'Weil ich es so beschlossen habe. Ich bin hier die Instanz.',
+    ],
+    how: [
+        'Mit Mühe. Viel Mühe.',
+        'Gar nicht. Aber ich tue so.',
+        'Besser als du vermutlich erwartet hast.',
+        'Mit Stil, Arroganz und minimaler Geduld.',
+        'Indem ich mich zusammenreiße, während du sowas fragst.',
+    ],
+    when: [
+        'Wenn es soweit ist. Also nicht jetzt.',
+        'Bald. Oder nie. Beides fühlt sich passend an.',
+        'Wenn du aufhörst zu nerven. Also vermutlich nie.',
+        'Dann, wenn ich es sage.',
+        'Zu einem Zeitpunkt, der deiner Würde nicht schadet. Also auch nie.',
+    ],
 } as const;

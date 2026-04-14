@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { config } from './config.js';
+import { registerGuildMemberAddEvent } from './events/guildMemberAdd.js';
 import { registerMessageCreateEvent } from './events/messageCreate.js';
 import { registerMessageDeleteEvent } from './events/messageDelete.js';
 import { registerMessageUpdateEvent } from './events/messageUpdate.js';
@@ -11,6 +12,7 @@ await initializeAutotalkState();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildVoiceStates,
@@ -18,6 +20,7 @@ const client = new Client({
 });
 
 registerReadyEvent(client);
+registerGuildMemberAddEvent(client);
 registerMessageCreateEvent(client);
 registerMessageDeleteEvent(client);
 registerMessageUpdateEvent(client);

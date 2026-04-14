@@ -4,9 +4,11 @@ import { autotalkCommand } from '../commands/autotalk.js';
 import { helpCommand } from '../commands/help.js';
 import { jokeCommand } from '../commands/joke.js';
 import { pingCommand } from '../commands/ping.js';
-import { wisdomCommand } from '../commands/wisdom.js';
 import { rankCommand } from '../commands/rank.js';
-import {statsCommand} from "../commands/stats.js";
+import { showranksCommand } from '../commands/showrank.js';
+import { statsCommand } from '../commands/stats.js';
+import { testmeCommand } from '../commands/testme.js';
+import { wisdomCommand } from '../commands/wisdom.js';
 
 const commands: Command[] = [
     pingCommand,
@@ -16,7 +18,9 @@ const commands: Command[] = [
     wisdomCommand,
     autotalkCommand,
     rankCommand,
+    showranksCommand,
     statsCommand,
+    testmeCommand,
 ];
 
 export const commandMap = new Map<string, Command>();

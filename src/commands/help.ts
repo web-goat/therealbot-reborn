@@ -38,6 +38,26 @@ export const helpCommand: Command = {
                     inline: false,
                 },
                 {
+                    name: `${config.prefix}rank | ${config.prefix}showrank`,
+                    value: 'Zeigt deinen Rang oder den Rang eines erwähnten Users an.',
+                    inline: false,
+                },
+                {
+                    name: `${config.prefix}showranks | ${config.prefix}ranks`,
+                    value: 'Zeigt alle Rangstufen auf dem Server an.',
+                    inline: false,
+                },
+                {
+                    name: `${config.prefix}stats | ${config.prefix}status | ${config.prefix}statistik`,
+                    value: 'Zeigt detaillierte Stats eines Users inkl. TheRealBot-Urteil.',
+                    inline: false,
+                },
+                {
+                    name: `${config.prefix}testme | ${config.prefix}test`,
+                    value: 'Bewertet deine Wenigkeit mit unnötiger Härte.',
+                    inline: false,
+                },
+                {
                     name: `${config.prefix}autotalk`,
                     value:
                         'Steuert ungefragte Bot-Kommentare.\n' +
@@ -46,16 +66,6 @@ export const helpCommand: Command = {
                         `\`${config.prefix}autotalk off\` → Deaktivieren\n` +
                         `\`${config.prefix}autotalk chance <0-100>\` → Wahrscheinlichkeit setzen\n` +
                         `\`${config.prefix}autotalk cooldown <sek>\` → Cooldown setzen`,
-                    inline: false,
-                },
-                {
-                    name: `${config.prefix}rank | ${config.prefix}showrank`,
-                    value: 'Zeigt deinen Rang oder den Rang eines erwähnten Users an.',
-                    inline: false,
-                },
-                {
-                    name: `${config.prefix}stats | ${config.prefix}statistik`,
-                    value: 'Zeigt detaillierte Stats eines Users inkl. Bewertung meines Urteils.',
                     inline: false,
                 },
             )
