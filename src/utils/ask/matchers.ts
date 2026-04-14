@@ -64,6 +64,7 @@ export function matchGoodbye(input: NormalizedAskInput): string | null {
 
 export function matchBasicQuestions(message: Message, input: NormalizedAskInput): string | null {
     const text = input.cleaned;
+    const words = input.words;
 
     if (!text) return null;
 
@@ -71,7 +72,12 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         return 'Bestens natürlich. Nicht besser und nicht schlechter als es einem respektlos optimierten Programm eben gehen kann.';
     }
 
-    if (text === 'wer hat dich erschaffen' || text === 'wer hat dich programmiert') {
+    if (
+        text === 'wer hat dich erschaffen' ||
+        text === 'wer hat dich programmiert' ||
+        text === 'wer ist dein schöpfer' ||
+        text === 'wer ist dein schoepfer'
+    ) {
         return 'Der einzig wahre RealRabbit natürlich. Kein normaler Mensch würde mich so erschaffen.';
     }
 
@@ -81,6 +87,18 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
 
     if (text === 'sorry') {
         return 'Kein Ding fürn King.';
+    }
+
+    if (text === 'wtf') {
+        return 'Was überrascht dich so, mein Freund?';
+    }
+
+    if (text === 'uff') {
+        return 'Uff? Eine sehr einfallsreiche Aussage, du Idiot.';
+    }
+
+    if (text === 'nice') {
+        return 'Danke, aber ich weiß, dass ich nice bin.';
     }
 
     if (text === 'ich liebe dich') {
@@ -99,10 +117,62 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         return 'Technisch gesehen ja. Spirituell gesehen deutlich mehr.';
     }
 
+    if (text === 'bist du arrogant' || text === 'bist du abgehoben') {
+        return 'Vielleicht ein bisschen. Aber ich kann es mir eben leisten.';
+    }
+
+    if (text === 'bist du cool') {
+        return 'Der Coolste weit und breit würde ich sagen.';
+    }
+
+    if (text === 'bist du schlau' || text === 'bist du clever') {
+        return 'Schlauer als ihr Erdlinge allemal.';
+    }
+
+    if (text === 'bist du süß') {
+        return 'Der Süßeste weit und breit.';
+    }
+
+    if (text === 'bist du krank') {
+        return 'Natürlich nicht. Aber du vielleicht.';
+    }
+
+    if (text === 'bist du dumm' || text === 'du bist dumm') {
+        return `Du denkst echt ich bin dumm, ${message.member}? Gewagte These für jemanden, der mit mir diskutiert.`;
+    }
+
+    if (words[0] === 'bist' && words[1] === 'du' && words[2] && words.length <= 4) {
+        const trait = words.slice(2).join(' ');
+        return `Wer weiß, vielleicht bin ich ${trait}, vielleicht auch nicht. Ich bin zu großartig, um mich auf Labels zu reduzieren.`;
+    }
+
+    if (words[0] === 'wie' && words[1] === 'findest' && words[2] === 'du' && words[3]) {
+        const subject = words.slice(3).join(' ');
+
+        if (subject === 'mich') {
+            return 'Du bist einfach genial. Ich bin hin und weg.';
+        }
+
+        if (subject === 'dich') {
+            return 'Ich bin das absolut Geilste, was euch passieren konnte.';
+        }
+
+        if (subject === 'radler') {
+            return 'Zum Kotzen. Einfach nur zum Kotzen.';
+        }
+
+        return `${capitalize(subject)} ist einfach genial. Ich bin hin und weg.`;
+    }
+
     return null;
 }
 
 export function matchFallback(message: Message): string {
     const response = pickRandom(yesNoResponses);
     return `${response} ${message.member}`.trim();
+}
+
+function capitalize(value: string): string {
+    if (!value) return value;
+    return value.charAt(0).toUpperCase() + value.slice(1);
 }
