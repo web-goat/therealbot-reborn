@@ -19,7 +19,12 @@ export const rankDefinitions: RankDefinition[] = [
     { level: 5, title: 'Ausgewachsener Rabbit', maxDaysInclusive: 730 },
     { level: 6, title: 'Senior Rabbit', maxDaysInclusive: 913 },
     { level: 7, title: 'Alter Hasensack', maxDaysInclusive: 1095 },
-    { level: 8, title: 'Real Rabbit', maxDaysInclusive: Number.POSITIVE_INFINITY },
+    { level: 8, title: 'Veteranen-Rabbit', maxDaysInclusive: 1460 }, // 4 Jahre
+    { level: 9, title: 'Legenden-Langohr', maxDaysInclusive: 1825 }, // 5 Jahre
+    { level: 10, title: 'Mythischer Mümmelmeister', maxDaysInclusive: 2190 }, // 6 Jahre
+    { level: 11, title: 'Unsterblicher Hopfenhase', maxDaysInclusive: 2555 }, // 7 Jahre
+    { level: 12, title: 'Real Rabbit', maxDaysInclusive: 2999 },
+    { level: 13, title: 'Server-Urgestein', maxDaysInclusive: Number.POSITIVE_INFINITY },
 ];
 
 export function calculateDaysOnServer(joinedAt: Date): number {

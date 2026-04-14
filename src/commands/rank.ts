@@ -1,6 +1,6 @@
 import { EmbedBuilder, type GuildMember, type Message } from 'discord.js';
 import type { Command } from '../types/command.js';
-import { getRankResult } from '../utils/rankUtils.js';
+import {getRankResult, rankDefinitions} from '../utils/rankUtils.js';
 
 function getTargetMember(message: Message): GuildMember | null {
     return message.mentions.members?.first() ?? message.member;
@@ -32,7 +32,7 @@ export const rankCommand: Command = {
             .addFields(
                 {
                     name: 'Aktueller Rang',
-                    value: `${rank.currentRank.title} (Stufe ${rank.currentRank.level}/8)`,
+                    value: `${rank.currentRank.title} (Stufe ${rank.currentRank.level}/${rankDefinitions.length})`,
                     inline: false,
                 },
                 {
