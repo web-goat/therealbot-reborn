@@ -48,6 +48,11 @@ export const helpCommand: Command = {
                         `\`${config.prefix}autotalk cooldown <sek>\` → Cooldown setzen`,
                     inline: false,
                 },
+                {
+                    name: `${config.prefix}rank | ${config.prefix}showrank`,
+                    value: 'Zeigt deinen Rang oder den Rang eines erwähnten Users an.',
+                    inline: false,
+                },
             )
             .setFooter({
                 text: 'TheRealBot – nervt jetzt auch ungefragt',

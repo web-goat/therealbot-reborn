@@ -5,6 +5,7 @@ import { helpCommand } from '../commands/help.js';
 import { jokeCommand } from '../commands/joke.js';
 import { pingCommand } from '../commands/ping.js';
 import { wisdomCommand } from '../commands/wisdom.js';
+import { rankCommand } from '../commands/rank.js';
 
 const commands: Command[] = [
     pingCommand,
@@ -13,6 +14,7 @@ const commands: Command[] = [
     jokeCommand,
     wisdomCommand,
     autotalkCommand,
+    rankCommand,
 ];
 
 export const commandMap = new Map<string, Command>();
