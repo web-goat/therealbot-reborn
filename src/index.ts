@@ -1,5 +1,6 @@
 import { Client, GatewayIntentBits } from 'discord.js';
 import { config } from './config.js';
+import { db } from './db.js';
 import { registerGuildMemberAddEvent } from './events/guildMemberAdd.js';
 import { registerMessageCreateEvent } from './events/messageCreate.js';
 import { registerMessageDeleteEvent } from './events/messageDelete.js';
@@ -8,6 +9,9 @@ import { registerReadyEvent } from './events/ready.js';
 import { initializeAutotalkState } from './utils/autotalkState.js';
 
 await initializeAutotalkState();
+
+const dbHealthcheck = await db.query('SELECT 1 AS connected');
+console.log('✅ Postgres verbunden:', dbHealthcheck.rows[0]);
 
 const client = new Client({
     intents: [
