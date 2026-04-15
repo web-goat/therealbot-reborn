@@ -1,16 +1,9 @@
-import {
-    EmbedBuilder,
-    type GuildMember,
-    type Message,
-} from 'discord.js';
-import type { Command } from '../types/command.js';
-import {
-    getRankResult,
-    formatJoinDate,
-    rankDefinitions,
-} from '../utils/rankUtils.js';
-import { getVisibleChannelStats } from '../utils/memberStatsUtils.js';
-import { getStatsFooterComment } from '../utils/statsCommentUtils.js';
+import {EmbedBuilder, type GuildMember, type Message,} from 'discord.js';
+import type {Command} from '../types/command.js';
+import {formatJoinDate, getRankResult, rankDefinitions,} from '../utils/rankUtils.js';
+import {getVisibleChannelStats} from '../utils/memberStatsUtils.js';
+import {getStatsFooterComment} from '../utils/statsCommentUtils.js';
+import {getStatsMemoryView} from '../services/statsService.js';
 
 function getTargetMember(message: Message): GuildMember | null {
     return message.mentions.members?.first() ?? message.member;
@@ -24,6 +17,17 @@ function isCreator(userId: string): boolean {
     }
 
     return userId === creatorId;
+}
+
+function formatOptionalDate(date: Date | null): string {
+    if (!date) {
+        return 'Noch nichts gespeichert.';
+    }
+
+    return new Intl.DateTimeFormat('de-DE', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(date);
 }
 
 export const statsCommand: Command = {
@@ -47,7 +51,10 @@ export const statsCommand: Command = {
         const creator = isCreator(member.id);
         const visibleChannels = getVisibleChannelStats(member);
         const totalChannelsInGuild = member.guild.channels.cache.size;
-        const percent = Math.round((visibleChannels.totalVisible / totalChannelsInGuild) * 100);
+        const percent = totalChannelsInGuild > 0
+            ? Math.round((visibleChannels.totalVisible / totalChannelsInGuild) * 100)
+            : 0;
+        const memoryStats = await getStatsMemoryView(member.guild.id, member.id);
 
         const embed = new EmbedBuilder()
             .setTitle(`STATS | ${member.displayName}`)
@@ -91,6 +98,41 @@ export const statsCommand: Command = {
                     value: `${visibleChannels.voiceVisible}`,
                     inline: true,
                 },
+                {
+                    name: 'Gedächtnis aktiv seit',
+                    value: formatOptionalDate(memoryStats.memoryStartedAt),
+                    inline: false,
+                },
+                {
+                    name: 'So viele Nachrichten versendet seit mein Gedächtnis da ist',
+                    value: `${memoryStats.messagesSentCount}`,
+                    inline: true,
+                },
+                {
+                    name: 'So viele Nachrichten gelöscht',
+                    value: `${memoryStats.messagesDeletedCount}`,
+                    inline: true,
+                },
+                {
+                    name: 'So viele Nachrichten editiert',
+                    value: `${memoryStats.messagesEditedCount}`,
+                    inline: true,
+                },
+                {
+                    name: 'So oft mit mir interagiert',
+                    value: `${memoryStats.botInteractionCount}`,
+                    inline: true,
+                },
+                {
+                    name: 'Letzte gespeicherte Nachricht',
+                    value: formatOptionalDate(memoryStats.lastMessageAt),
+                    inline: true,
+                },
+                {
+                    name: 'Letzte Bot-Interaktion',
+                    value: formatOptionalDate(memoryStats.lastBotInteractionAt),
+                    inline: true,
+                },
             )
             .setFooter({
                 text: getStatsFooterComment({
@@ -101,6 +143,6 @@ export const statsCommand: Command = {
             })
             .setTimestamp();
 
-        await message.reply({ embeds: [embed] });
+        await message.reply({embeds: [embed]});
     },
 };

@@ -1,6 +1,7 @@
-import { Events, type Client, type Message } from 'discord.js';
-import { getEditSnitchRoast } from '../utils/editSnitchRoasts.js';
-import { getCachedMessage, updateCachedMessage } from '../utils/snitchStore.js';
+import {type Client, Events, type Message} from 'discord.js';
+import {getEditSnitchRoast} from '../utils/editSnitchRoasts.js';
+import {trackUpdatedMessage} from '../services/messageTrackingService.js';
+import {sanitizeQuotedText} from "../services/discordSanitize.js";
 
 function isRealMessage(message: unknown): message is Message<true> {
     return Boolean(
@@ -14,36 +15,34 @@ function isRealMessage(message: unknown): message is Message<true> {
 }
 
 export function registerMessageUpdateEvent(client: Client): void {
-    client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
-        if (!isRealMessage(newMessage)) return;
-        if (!newMessage.guild) return;
-        if (newMessage.author.bot) return;
-
-        const cached = getCachedMessage(newMessage.id);
-
-        if (!cached) {
-            if (newMessage.content.trim()) {
-                updateCachedMessage(newMessage.id, newMessage.content);
-            }
+    client.on(Events.MessageUpdate, async (_oldMessage, newMessage) => {
+        if (!isRealMessage(newMessage)) {
             return;
         }
 
-        const previousContent = cached.content.trim();
-        const nextContent = newMessage.content.trim();
+        if (!newMessage.guild) {
+            return;
+        }
 
-        if (!previousContent || !nextContent) return;
-        if (previousContent === nextContent) return;
+        if (newMessage.author.bot) {
+            return;
+        }
+
+        const updated = await trackUpdatedMessage(newMessage);
+
+        if (!updated) {
+            return;
+        }
 
         const roast = getEditSnitchRoast();
 
         await newMessage.channel.send({
             content:
-                `✏️ <@${cached.authorId}> hat gerade im Channel **#${cached.channelName}** eine Nachricht bearbeitet.\n\n` +
-                `**Vorher:**\n> ${previousContent}\n\n` +
-                `**Nachher:**\n> ${nextContent}\n\n` +
+                `✏️ <@${updated.authorId}> hat gerade im Channel **#${updated.channelName}** eine Nachricht bearbeitet.\n\n` +
+                `**Vorher:**\n${sanitizeQuotedText(updated.previousContent)}\n\n` +
+                `**Nachher:**\n${sanitizeQuotedText(updated.nextContent)}\n\n` +
                 `${roast}`,
+            allowedMentions: {parse: []},
         });
-
-        updateCachedMessage(newMessage.id, nextContent);
     });
 }

@@ -1,27 +1,34 @@
-import { Events, type Client } from 'discord.js';
-import { config } from '../config.js';
-import { commandMap } from '../utils/commandRegistry.js';
-import { getInterjection } from '../utils/interjections.js';
-import { isAutotalkEnabledForChannel } from '../utils/autotalkState.js';
-import { cacheMessage } from '../utils/snitchStore.js';
+import {type Client, Events, type Message} from 'discord.js';
+import {config} from '../config.js';
+import {commandMap} from '../utils/commandRegistry.js';
+import {getInterjection} from '../utils/interjections.js';
+import {isAutotalkEnabledForChannel} from '../utils/autotalkState.js';
+import {trackCreatedMessage} from '../services/messageTrackingService.js';
+import {incrementBotInteractionCount} from "../repositories/useMemoryRepository.js";
+
+function isGuildMessage(message: Message): message is Message<true> {
+    return Boolean(message.guild);
+}
 
 export function registerMessageCreateEvent(client: Client): void {
     client.on(Events.MessageCreate, async (message) => {
-        if (message.author.bot || !message.guild) return;
+        if (message.author.bot) {
+            return;
+        }
 
-        cacheMessage({
-            messageId: message.id,
-            authorId: message.author.id,
-            authorTag: message.author.tag,
-            channelId: message.channel.id,
-            channelName: 'name' in message.channel ? message.channel.name ?? 'unbekannt' : 'unbekannt',
-            content: message.content,
-            createdAt: message.createdTimestamp,
-        });
+        if (!isGuildMessage(message)) {
+            return;
+        }
+
+        try {
+            await trackCreatedMessage(message);
+        } catch (error) {
+            console.error('Fehler beim Speichern der Nachricht:', error);
+        }
 
         if (!message.content.startsWith(config.prefix)) {
             if (isAutotalkEnabledForChannel(message.channel.id)) {
-                const interjection = getInterjection(message.content);
+                const interjection = getInterjection(message.channel.id, message.content);
 
                 if (interjection) {
                     await message.reply(interjection);
@@ -38,7 +45,20 @@ export function registerMessageCreateEvent(client: Client): void {
 
         const commandName = args.shift()?.toLowerCase();
 
-        if (!commandName) return;
+        if (!commandName) {
+            return;
+        }
+
+        try {
+            await incrementBotInteractionCount(
+                message.guild.id,
+                message.author.id,
+                message.author.tag,
+                new Date(),
+            );
+        } catch (error) {
+            console.error('Fehler beim Zählen der Bot-Interaktion:', error);
+        }
 
         const command = commandMap.get(commandName);
 

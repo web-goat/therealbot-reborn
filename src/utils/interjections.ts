@@ -1,4 +1,4 @@
-import { getAutotalkConfig } from './autotalkState.js';
+import {getAutotalkConfig} from './autotalkState.js';
 
 const randomComments = [
     'Starke Aussage. Inhaltlich dünn, aber stark.',
@@ -39,15 +39,16 @@ const keywordReactions: Record<string, string[]> = {
     ],
 };
 
-let lastInterjectionAt = 0;
+const lastInterjectionAtByChannel = new Map<string, number>();
 
 function pickRandom<T>(items: T[]): T {
     return items[Math.floor(Math.random() * items.length)];
 }
 
-export function getInterjection(content: string): string | null {
+export function getInterjection(channelId: string, content: string): string | null {
     const now = Date.now();
-    const { cooldownMs, randomChance } = getAutotalkConfig();
+    const {cooldownMs, randomChance} = getAutotalkConfig();
+    const lastInterjectionAt = lastInterjectionAtByChannel.get(channelId) ?? 0;
 
     if (now - lastInterjectionAt < cooldownMs) {
         return null;
@@ -55,21 +56,21 @@ export function getInterjection(content: string): string | null {
 
     const cleaned = content.trim().toLowerCase();
 
-    if (!cleaned) return null;
+    if (!cleaned) {
+        return null;
+    }
 
     for (const [keyword, responses] of Object.entries(keywordReactions)) {
         if (cleaned.includes(keyword)) {
-            lastInterjectionAt = now;
+            lastInterjectionAtByChannel.set(channelId, now);
             return pickRandom(responses);
         }
     }
 
-    const shouldRandomlyInterject = Math.random() < randomChance;
-
-    if (!shouldRandomlyInterject) {
+    if (Math.random() >= randomChance) {
         return null;
     }
 
-    lastInterjectionAt = now;
+    lastInterjectionAtByChannel.set(channelId, now);
     return pickRandom(randomComments);
 }
