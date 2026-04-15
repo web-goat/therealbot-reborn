@@ -3,6 +3,7 @@ import {getAskResponse} from '../utils/ask/getAskResponse.js';
 import {normalizeInput} from '../utils/ask/normalizeInput.js';
 import {commandMap} from '../utils/commandRegistry.js';
 import {trackAskInteraction} from '../services/askTrackingService.js';
+import {buildAskContext} from '../services/askContextService.js';
 
 export const askCommand: Command = {
     name: 'ask',
@@ -10,7 +11,8 @@ export const askCommand: Command = {
     description: 'Antwortet auf Fragen und Gelaber.',
     async execute(message, args) {
         const normalized = normalizeInput(args);
-        const result = getAskResponse(message, args);
+        const context = await buildAskContext(message);
+        const result = getAskResponse(message, args, context);
 
         if (!result) {
             const fallback = 'Nerv mich nicht!!';

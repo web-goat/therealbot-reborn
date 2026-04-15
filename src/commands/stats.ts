@@ -123,16 +123,16 @@ export const statsCommand: Command = {
                     value: `${memoryStats.botInteractionCount}`,
                     inline: true,
                 },
-                {
-                    name: 'Letzte gespeicherte Nachricht',
-                    value: formatOptionalDate(memoryStats.lastMessageAt),
-                    inline: true,
-                },
-                {
-                    name: 'Letzte Bot-Interaktion',
-                    value: formatOptionalDate(memoryStats.lastBotInteractionAt),
-                    inline: true,
-                },
+                // {
+                //     name: 'Letzte gespeicherte Nachricht',
+                //     value: formatOptionalDate(memoryStats.lastMessageAt),
+                //     inline: true,
+                // },
+                // {
+                //     name: 'Letzte Bot-Interaktion',
+                //     value: formatOptionalDate(memoryStats.lastBotInteractionAt),
+                //     inline: true,
+                // },
             )
             .setFooter({
                 text: getStatsFooterComment({

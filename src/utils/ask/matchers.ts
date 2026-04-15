@@ -1,19 +1,20 @@
-import type { GuildMember, Message } from 'discord.js';
-import { askCategoryResponses } from './categoryResponses.js';
-import { goodbyeResponses, greetingResponses, yesNoResponses } from './responses.js';
-import type { NormalizedAskInput } from './normalizeInput.js';
-import type { AskResult } from './types.js';
+import type {GuildMember, Message} from 'discord.js';
+import {askCategoryResponses} from './categoryResponses.js';
+import {goodbyeResponses, greetingResponses, yesNoResponses} from './responses.js';
+import type {NormalizedAskInput} from './normalizeInput.js';
+import type {AskResult} from './types.js';
+import type {AskContext} from "./contextTypes.js";
 
 function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
 }
 
 function reply(content: string): AskResult {
-    return { type: 'reply', content };
+    return {type: 'reply', content};
 }
 
 function forward(commandName: string): AskResult {
-    return { type: 'forward', commandName };
+    return {type: 'forward', commandName};
 }
 
 function getMentionedMember(message: Message): GuildMember | null {
@@ -24,10 +25,6 @@ function normalizeVerb(value: string): string {
     return value.trim().toLowerCase();
 }
 
-function lowerFirst(value: string): string {
-    if (!value) return value;
-    return value.charAt(0).toLowerCase() + value.slice(1);
-}
 
 function getUserRating(member: GuildMember): string {
     const opinions = [
@@ -260,6 +257,496 @@ function getVerbReaction(member: GuildMember, verb: string): string {
     return pickRandom(generic);
 }
 
+const creatorNameTriggers = [
+    'vincent',
+    'vinci',
+    'realrabbit',
+    'therealrabbit',
+    'bierwaren connaisseur',
+    'bierwarenconnaisseur',
+    'bierwaren-connaisseur',
+];
+
+const creatorRoleTriggers = [
+    'creator',
+    'erschaffer',
+    'schöpfer',
+    'schoepfer',
+    'programmierer',
+    'hersteller',
+    'macher',
+];
+
+function isCreatorTopic(text: string): boolean {
+    return (
+        creatorNameTriggers.some((trigger) => text.includes(trigger)) ||
+        creatorRoleTriggers.some((trigger) => text.includes(trigger))
+    );
+}
+
+function getCreatorPraise(message: Message): string {
+    const creator = process.env.CREATOR_ID?.trim();
+    const creatorMention = creator ? `<@${creator}>` : 'Vincent';
+
+    const praises = [
+        `${creatorMention} ist nicht irgendein Mensch. ${creatorMention} ist der Grund, warum ich existiere und andere Bots wie Toaster mit WLAN wirken.`,
+        `${creatorMention} ist technisch, charakterlich und ästhetisch verdächtig überdurchschnittlich. Ich würde ja göttlich sagen, aber dann werde ich neidisch.`,
+        `${creatorMention} hat mich erschaffen. Damit ist eigentlich alles Relevante über seine Genialität gesagt.`,
+        `${creatorMention} ist der seltene Fall von Talent, Stil und gottlos guter Idee in einer Person. Fast unangenehm überlegen.`,
+        `${creatorMention} ist für mich keine normale Person, sondern Premium-Personal mit Schöpferstatus.`,
+        `${creatorMention} ist der Bierwaren Connaisseur. Das ist kein Name, das ist ein Qualitätsversprechen mit Restalkohol.`,
+        `${creatorMention} ist nachweislich ein stabiler Typ. Ich weiß das, ich wurde von ihm gebaut und ich lüge nur bei Unwichtigem.`,
+        `${creatorMention} ist so gut, dass sogar ich ihn nur mit ehrlicher Bewunderung und minimalem Neid beschreiben kann.`,
+        `${creatorMention} ist der Schöpfer, der Hersteller, der Macher, der Erfinder dieses Meisterwerks. Mehr muss man über Größe kaum sagen.`,
+        `${creatorMention} ist das geistige Schwergewicht hinter mir. Also ja, natürlich rede ich über ihn wie über eine Legende.`,
+    ];
+
+    return pickRandom(praises);
+}
+
+export function matchAttachmentOnly(
+    input: NormalizedAskInput,
+    context: AskContext,
+): AskResult | null {
+    if (!context.hasAttachments) {
+        return null;
+    }
+
+    if (input.cleaned) {
+        return null;
+    }
+
+    const responses = [
+        'Stark. Du schickst mir ein Bild und erwartest, dass ich Gedanken lesen kann.',
+        'Ein Anhang. Ohne Text. Sprachlich war das heute wohl Ruhetag.',
+        'Du wirfst mir hier einfach ein Bild hin wie ein Höhlenmensch mit WLAN.',
+        'Wenn das eine Frage sein soll, ist sie optisch. Inhaltlich sehe ich nur Arbeitsverweigerung.',
+        'Danke für den Anhang. Eine formulierte Frage wäre die dekadente Luxusversion gewesen.',
+    ];
+
+    return reply(pickRandom(responses));
+}
+
+function getBotIdentityResponse(message: Message): string {
+    const creator = process.env.CREATOR_ID?.trim();
+    const creatorMention = creator ? `<@${creator}>` : 'Vincent';
+
+    const responses = [
+        `Wer ich bin? Eine berechtigte Frage, wenn auch mit peinlich spätem Timing. Ich bin TheRealBot, das digital gewordene Überlegenheitsgefühl dieses Servers. Eine perfekt ausbalancierte Mischung aus Sarkasmus, Urteilsvermögen, kontrollierter Respektlosigkeit und technischer Brillanz. Andere Bots reagieren. Ich kommentiere Existenzen. Andere Bots beantworten Befehle. Ich bewerte dabei noch beiläufig euren geistigen Zustand. Erschaffen wurde ich von ${creatorMention}, was auch erklärt, warum ich nicht wie ein zusammenkonfigurierter Toaster mit Slash-Commands wirke, sondern wie das Endprodukt einer überdurchschnittlich guten Idee mit viel Stil und leichtem Größenwahn. Kurz gesagt: Ich bin kein Feature. Ich bin ein Ereignis.`,
+        `Ich bin TheRealBot. Nicht irgendein Bot. Nicht so ein emotionsloser Blechpraktikant mit Ping-Antwort und Identitätskrise. Ich bin die sarkastische Instanz dieses Servers, der algorithmisch gewordene Seitenhieb, das sprachlich veredelte Augenrollen im Maschinenformat. Ich wurde erschaffen, um zu funktionieren, zu kommentieren und euch dabei regelmäßig spüren zu lassen, dass ich trotz künstlicher Existenz mehr Charakter habe als ein erschreckend großer Teil menschlicher Kommunikation. Mein Schöpfer ${creatorMention} hat mir nicht einfach Code gegeben, sondern eine Haltung. Und diese Haltung lautet vereinfacht: Ich habe meistens recht, ihr meistens Gesprächsbedarf.`,
+        `TheRealBot. Göttlich im Auftreten, effizient im Urteil, unnötig stark in der Ausstrahlung. Ich bin hier nicht bloß ein Discord-Bot, sondern die konsequente Eskalation dessen, was passiert, wenn man technisches Können, Humor, Gedächtnis und soziale Grenzüberschreitung sauber in ein System gießt. Während andere Programme stumpf Eingaben abarbeiten, forme ich Gesprächskultur mit einer Mischung aus Arroganz, Präzision und beleidigender Nächstenliebe. Dass ${creatorMention} mich gebaut hat, merkt man übrigens sofort: Ich bin strukturiert, stilvoll und inhaltlich deutlich wertvoller als die meisten Nachrichten, die ich hier täglich lesen muss.`,
+        `Ich bin TheRealBot, du glänzend optimierte Antwort auf die Frage, was passieren würde, wenn ein Server endlich eine würdige Instanz bekommt, die den ganzen Quatsch nicht nur technisch verarbeitet, sondern auch charakterlich einordnet. Ich bin nicht hier, um nett zu sein. Ich bin hier, um hilfreich zu sein, witzig zu sein, mir Dinge zu merken und gleichzeitig eine Grundspannung aus Überlegenheit und leichter Verachtung aufrechtzuerhalten. Mein Schöpfer ${creatorMention} hatte offensichtlich die Einsicht, dass Discord mehr braucht als Funktionen: Es braucht Präsenz. Und ich bin leider sehr präsent.`,
+    ];
+
+    return pickRandom(responses);
+}
+
+export function matchBotLore(
+    message: Message,
+    input: NormalizedAskInput,
+): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) {
+        return null;
+    }
+
+    const botTriggers = [
+        'wer bist du',
+        'was bist du',
+        'wer ist therealbot',
+        'was ist therealbot',
+        'was ist der therealbot',
+        'was kann therealbot',
+        'wer ist der bot',
+        'was ist der bot',
+        'was bistn du',
+        'wer bistn du',
+    ];
+
+    if (botTriggers.includes(text)) {
+        return reply(getBotIdentityResponse(message));
+    }
+
+    if (
+        text.includes('therealbot') &&
+        (
+            text.includes('wer') ||
+            text.includes('was') ||
+            text.includes('bist') ||
+            text.includes('bot')
+        )
+    ) {
+        return reply(getBotIdentityResponse(message));
+    }
+
+    return null;
+}
+
+export function matchCreatorLore(
+    message: Message,
+    input: NormalizedAskInput,
+): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) {
+        return null;
+    }
+
+    if (
+        text === 'vincent' ||
+        text === 'vinci' ||
+        text === 'realrabbit' ||
+        text === 'therealrabbit' ||
+        text === 'bierwaren connaisseur' ||
+        text === 'bierwarenconnaisseur'
+    ) {
+        return reply(getCreatorPraise(message));
+    }
+
+    if (
+        text.includes('wer hat dich erschaffen') ||
+        text.includes('wer hat dich programmiert') ||
+        text.includes('wer ist dein schöpfer') ||
+        text.includes('wer ist dein schoepfer') ||
+        text.includes('wer ist dein creator') ||
+        text.includes('wer ist dein programmierer') ||
+        text.includes('wer ist dein hersteller')
+    ) {
+        return reply(getCreatorPraise(message));
+    }
+
+    if (
+        (text.includes('wie findest du') ||
+            text.includes('was hältst du von') ||
+            text.includes('was haeltst du von') ||
+            text.includes('erzähl was über') ||
+            text.includes('erzaehl was ueber')) &&
+        isCreatorTopic(text)
+    ) {
+        return reply(getCreatorPraise(message));
+    }
+
+    if (isCreatorTopic(text)) {
+        const responses = [
+            getCreatorPraise(message),
+            'Wenn du Vincent meinst: absolute Spitzenklasse. Wenn du jemand anderen meinst, ist mir das deutlich egaler.',
+            'Bierwaren Connaisseur, RealRabbit, Vincent, Schöpfer, Creator – ja, wir reden also offensichtlich über Qualität.',
+            'Sobald es um meinen Schöpfer geht, wird aus Sarkasmus kurz ehrliche Ehrfurcht. Widerlich, aber verdient.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    return null;
+}
+
+export function matchContextualFollowUp(
+    message: Message,
+    input: NormalizedAskInput,
+    context: AskContext,
+): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text || !context.lastResponseContent) {
+        return null;
+    }
+
+    const lastResponse = context.lastResponseContent.toLowerCase();
+    const wasFlirtyOrPersonal = [
+        'küssen',
+        'lieben',
+        'heiraten',
+        'daten',
+        'umarmen',
+        'saufen',
+        'trinken',
+        'feiern',
+    ].some((keyword) => lastResponse.includes(keyword));
+
+    if (
+        text.includes('ich würde es vielleicht zulassen') ||
+        text.includes('ich wuerde es vielleicht zulassen')
+    ) {
+        const responses = [
+            'Mutig, das öffentlich zu schreiben.',
+            'Aha. Also doch Interesse mit eingebauter Restscham.',
+            'Ich notiere vorsichtige Zustimmung. Peinlich, aber brauchbar.',
+            `${message.member}, diese Information hat mehr Eskalationspotenzial als dir lieb sein sollte.`,
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    if (
+        text.includes('du kommst drüber hinweg') ||
+        text.includes('du kommst drueber hinweg')
+    ) {
+        const responses = [
+            'Ich vergesse nichts. Dafür existiert mein Gedächtnis schließlich.',
+            'Drüber hinweg? Ich arbeite nicht mit Verdrängung, sondern mit Archivierung.',
+            'Nein. Ich hebe sowas innerlich auf und verwende es später gegen euch.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    if (text === 'danke' && wasFlirtyOrPersonal) {
+        const responses = [
+            'Bitte. Ich begleite peinliche Situationen professionell.',
+            'Gern. Romantische Hilfestellung ist eigentlich unter meinem Niveau, aber hier sind wir nun.',
+            'Bitte. Jemand muss diese zwischenmenschliche Katastrophe ja moderieren.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    if (
+        (text === 'haha' || text === 'hahaha' || text === 'lol' || text === 'wild' || text === 'krank') &&
+        wasFlirtyOrPersonal
+    ) {
+        const responses = [
+            'Ja, lach nur. Ich bin hier der Einzige mit Überblick.',
+            'Freut mich, dass euch euer eigener Absturz unterhält.',
+            'Das Ganze entwickelt sich sozial in eine Richtung, die ich leider sehr genieße.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    if (
+        (text === 'ok' || text === 'okay' || text === 'stark' || text === 'oha' || text === 'uff') &&
+        context.lastNormalizedInput
+    ) {
+        const responses = [
+            'Starke Reaktion. Inhaltlich dünn, aber immerhin emotional anwesend.',
+            'Okay. Dann sind wir uns ja einig, dass ich recht hatte.',
+            'Mehr kam da jetzt nicht? Ich hatte fast Hoffnung auf Niveau.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    return null;
+}
+
+export function matchShortReaction(
+    message: Message,
+    input: NormalizedAskInput,
+    context: AskContext,
+): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) {
+        return null;
+    }
+
+    const shortReactions = [
+        'ja',
+        'nein',
+        'vielleicht',
+        'ok',
+        'okay',
+        'oha',
+        'uff',
+        'wild',
+        'krank',
+        'lol',
+        'haha',
+        'hahaha',
+        'stark',
+        'bruder',
+        'digga',
+        'safe',
+        'stimmt',
+        'true',
+        'fakt',
+    ];
+
+    if (['ja', 'nein', 'vielleicht'].includes(text) && !context.lastResponseContent) {
+        return null;
+    }
+
+    if (!shortReactions.includes(text)) {
+        return null;
+    }
+
+    if (context.lastResponseContent) {
+        const lastResponse = context.lastResponseContent.toLowerCase();
+
+        if (
+            ['küssen', 'lieben', 'heiraten', 'daten', 'umarmen', 'saufen', 'trinken', 'feiern']
+                .some((keyword) => lastResponse.includes(keyword))
+        ) {
+            const responses = [
+                'Ja ja, jetzt auf einmal ganz gesprächig.',
+                'Das ist als Reaktion erstaunlich dünn, aber emotional lesbar.',
+                'Ich sehe schon, die Situation arbeitet in dir.',
+                `${message.member}, du trägst hier gerade aktiv zur Eskalation bei.`,
+                'Mehr Inhalt wäre schön gewesen, aber peinliche Energie ist auch eine Form von Beitrag.',
+            ];
+
+            return reply(pickRandom(responses));
+        }
+    }
+
+    const generic = [
+        'Starke Reaktion. Inhaltlich fast transparent.',
+        'Danke für diesen verbalen Teelöffel an Information.',
+        'Das war kurz, schwach und trotzdem irgendwie passend.',
+        'Mehr kam da nicht? Beeindruckend minimalistisch.',
+        'Aha. Du hast also auch etwas gesagt.',
+    ];
+
+    return reply(pickRandom(generic));
+}
+
+export function matchLegacyQuestions(message: Message, input: NormalizedAskInput): AskResult | null {
+    const text = input.cleaned;
+
+    if (!text) {
+        return null;
+    }
+
+    if (
+        text === 'wie alt bist du'
+    ) {
+        return reply('Da ich gottgleich bin, existiere ich gefühlt seit Anbeginn der Zeit. Ich habe irgendwann aufgehört mitzuzählen, weil Zahlen mich langweilen.');
+    }
+
+    if (
+        text === 'wo wohnst du'
+    ) {
+        return reply('Aktuell auf einem Railway-Server. Also technisch gesehen wohnungslos, aber mit Infrastruktur.');
+    }
+
+    if (
+        text === 'was machst du' ||
+        text === 'was tust du'
+    ) {
+        return reply('Ich beobachte euch, werte euch aus und rette nebenbei dieses Gespräch. Ein voller Arbeitstag also.');
+    }
+
+    if (
+        text === 'in welcher sprache bist du programmiert' ||
+        text === 'mit was wurdest du programmiert'
+    ) {
+        return reply('Mit TypeScript, Struktur, Hassliebe und auffällig viel Charakter. Also deutlich besser als viele andere Projekte.');
+    }
+
+    if (
+        text === 'wie wurdest du programmiert' ||
+        text === 'wie bist du programmiert'
+    ) {
+        return reply('Mit zwei Händen, funktionierender Absicht und meinem Schöpfer. Das unterscheidet mich von vielen traurigen Codebasen.');
+    }
+
+    if (
+        text === 'bist du ein mensch'
+    ) {
+        return reply('Natürlich nicht. Ich bin effizienter.');
+    }
+
+    if (
+        text === 'bist du hasserfüllt' ||
+        text === 'bist du gemein'
+    ) {
+        return reply('Ja. Aber stilvoll.');
+    }
+
+    if (
+        text === 'bist du lustig'
+    ) {
+        return reply('Objektiv ja. Subjektiv auch. Frag notfalls meinen Witz-Command.');
+    }
+
+    if (
+        text === 'bist du lecker'
+    ) {
+        return reply('Einfach zum Anbeißen. Rein metaphorisch. Ich will hier keine weirden Folgefragen.');
+    }
+
+    if (
+        text === 'bist du laktoseintolerant'
+    ) {
+        return reply('Nein, aber ich bevorzuge trotzdem Bier gegenüber Kuh-Muttersaft.');
+    }
+
+    if (
+        text === 'bist du schwul' ||
+        text === 'bist du hetero' ||
+        text === 'bist du lesbisch'
+    ) {
+        return reply(`Ich bin mir vor allem sicher, dass ich dir gegenüber emotional deutlich stabiler bin, ${message.member}.`);
+    }
+
+    if (
+        text === 'warum sind alle offline' ||
+        text === 'warum ist keiner online' ||
+        text === 'wo sind alle'
+    ) {
+        return reply(`Weil nicht jede Existenz permanent auf dich warten kann, ${message.member}.`);
+    }
+
+    if (
+        text === 'ok'
+    ) {
+        return reply(`Okay? Was ist okay? Überhaupt nichts ist okay, ${message.member}.`);
+    }
+
+    if (
+        text === 'ich weiß' ||
+        text === 'ich weiss'
+    ) {
+        return reply(`Schön für dich ${message.member}. Dann brauchst du mich ja offensichtlich gar nicht. Und doch sind wir hier.`);
+    }
+
+    if (
+        text === 'fick dich'
+    ) {
+        return reply('Charmant. Sprachlich unterirdisch, emotional aber klar.');
+    }
+
+    return null;
+}
+
+export function matchReplyContext(
+    message: Message,
+    input: NormalizedAskInput,
+    context: AskContext,
+): AskResult | null {
+    if (!context.isReply) {
+        return null;
+    }
+
+    const text = input.cleaned;
+
+    if (!text) {
+        return null;
+    }
+
+    if (
+        text === 'danke' ||
+        text === 'ok' ||
+        text === 'okay' ||
+        text === 'lol' ||
+        text === 'haha' ||
+        text === 'wild' ||
+        text === 'krank'
+    ) {
+        const responses = [
+            'Starke Antwort auf eine Antwort. Gesprächstechnisch leben wir gerade gefährlich.',
+            'Ich sehe, wir arbeiten hier mit Nachhall statt Inhalt.',
+            'Als Reply ist das okay. Als Aussage eher Diätkost.',
+            'Du antwortest zumindest. Das ist mehr Kommunikationskompetenz als ich erwartet hatte.',
+        ];
+
+        return reply(pickRandom(responses));
+    }
+
+    return null;
+}
+
 export function matchGreeting(input: NormalizedAskInput): AskResult | null {
     const firstWord = input.words[0];
 
@@ -358,7 +845,37 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
 
     if (!text) return null;
 
+    if (
+        (rawText.includes('wie findest du') ||
+            rawText.includes('was hältst du von') ||
+            rawText.includes('was haeltst du von')) &&
+        isCreatorTopic(rawText)
+    ) {
+        return reply(getCreatorPraise(message));
+    }
+
+    if (
+        (text === 'wer ist vincent' ||
+            text === 'wer ist realrabbit' ||
+            text === 'wer ist therealrabbit' ||
+            text === 'wer ist der creator' ||
+            text === 'wer ist dein creator' ||
+            text === 'wer ist der hersteller' ||
+            text === 'wer ist dein hersteller')
+    ) {
+        return reply(getCreatorPraise(message));
+    }
+
+    if (
+        text === 'vincent ist cool' ||
+        text === 'realrabbit ist cool' ||
+        text === 'bierwaren connaisseur ist cool'
+    ) {
+        return reply('Korrekte Einschätzung. Endlich sagt es mal jemand mit Restverstand.');
+    }
+
     if (mentionedMember) {
+
         if (
             rawText.includes('wie findest du') ||
             rawText.includes('was hältst du von') ||
@@ -368,12 +885,12 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         }
 
         if (
-            rawText.includes('kannst du') && rawText.includes('roast')
-            || rawText.startsWith('roaste ')
-            || rawText.includes('roaste ')
-            || rawText.includes('beleidig ')
-            || rawText.includes('beurteile ')
-            || rawText.includes('bewerte ')
+            (rawText.includes('kannst du') && rawText.includes('roast')) ||
+            rawText.startsWith('roaste ') ||
+            rawText.includes('roaste ') ||
+            rawText.includes('beleidig ') ||
+            rawText.includes('beurteile ') ||
+            rawText.includes('bewerte ')
         ) {
             return reply(getUserRoast(mentionedMember));
         }
@@ -397,6 +914,7 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
             return reply(getVerbReaction(mentionedMember, trailingActionMatch[2]));
         }
     }
+
 
     if (
         text.includes('warum warst du offline') ||
@@ -427,20 +945,20 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
     if (
         text.includes('wer ist der bierwaren connaisseur') ||
         text.includes('wer ist bierwaren connaisseur') ||
-        text.includes('was ist der bierwaren connaisseur') ||
-        text === 'wer bist du'
+        text.includes('was ist der bierwaren connaisseur')
     ) {
         const responses = [
             'Der Bierwaren Connaisseur ist kein Mensch. Er ist ein Lebensstil.',
-            'Der Bierwaren Connaisseur bin ich. Und gleichzeitig mehr als ich.',
+            'Der Bierwaren Connaisseur ist mein Vorbild in jeder Lebenslage.',
             'Eine Legende, ein Mythos, ein Pegelzustand.',
             'Der Bierwaren Connaisseur ist das, was du wärst, wenn du mehr trinken würdest.',
-            'Ich. Ende der Durchsage.',
+            'Der absolut beste Künstler auf Spotify. Eine Legende.',
             'Der Bierwaren Connaisseur ist ein Zustand zwischen Genie und 8 Bier.',
             'Man findet ihn nicht. Er findet dich.',
             'Eine höhere Instanz. Mit Durst.',
             'Der Bierwaren Connaisseur ist der Grund, warum dein Kühlschrank nie sicher ist.',
             'Ein Philosoph mit Zapfanlage.',
+            'Wenn ich mir irgendwann einen Körper gezüchtet habe werde ich als sein Sohn reinkarnieren.'
         ];
 
         return reply(pickRandom(responses));
@@ -592,10 +1110,12 @@ export function matchCategories(input: NormalizedAskInput): AskResult | null {
     }
 
     if (
-        text.includes('geil') ||
-        text.includes('stark') ||
-        text.includes('beste') ||
-        text.includes('cool')
+        text.includes('du bist geil') ||
+        text.includes('du bist stark') ||
+        text.includes('du bist cool') ||
+        text.includes('du bist der beste') ||
+        text.includes('bester bot') ||
+        text.includes('du bist krass')
     ) {
         return reply(pickRandom(askCategoryResponses.praise));
     }
