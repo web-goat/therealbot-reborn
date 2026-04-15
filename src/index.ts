@@ -15,14 +15,25 @@ console.log('✅ Postgres verbunden:', dbHealthcheck.rows[0]);
 
 await db.query(`
     CREATE TABLE IF NOT EXISTS bot_notes (
-        id SERIAL PRIMARY KEY,
-        note TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW()
-    )
+                                             id SERIAL PRIMARY KEY,
+                                             note TEXT NOT NULL,
+                                             created_at TIMESTAMP DEFAULT NOW()
+        )
 `);
-
 console.log('✅ Tabelle bot_notes ist bereit');
 
+await db.query(`
+    INSERT INTO bot_notes (note)
+    VALUES ($1)
+`, ['TheRealBot war hier 👀']);
+
+const notes = await db.query(`
+    SELECT * FROM bot_notes
+    ORDER BY created_at DESC
+    LIMIT 5
+`);
+
+console.log('🧠 Letzte Notes:', notes.rows);
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
