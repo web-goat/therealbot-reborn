@@ -28,8 +28,8 @@ export function getAskResponse(
 
     return (
         matchAttachmentOnly(input, context) ??
-        matchBotLore(message, input) ??
-        matchCreatorLore(message, input) ??
+        matchBotLore(input) ??
+        matchCreatorLore(input) ??
         matchContextualFollowUp(message, input, context) ??
         matchReplyContext(message, input, context) ??
         matchShortReaction(message, input, context) ??
