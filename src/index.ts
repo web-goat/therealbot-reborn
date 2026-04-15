@@ -13,6 +13,16 @@ await initializeAutotalkState();
 const dbHealthcheck = await db.query('SELECT 1 AS connected');
 console.log('✅ Postgres verbunden:', dbHealthcheck.rows[0]);
 
+await db.query(`
+    CREATE TABLE IF NOT EXISTS bot_notes (
+        id SERIAL PRIMARY KEY,
+        note TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+    )
+`);
+
+console.log('✅ Tabelle bot_notes ist bereit');
+
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
