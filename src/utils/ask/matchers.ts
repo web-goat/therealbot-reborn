@@ -3,7 +3,7 @@ import {askCategoryResponses} from './categoryResponses.js';
 import {goodbyeResponses, greetingResponses, yesNoResponses} from './responses.js';
 import type {NormalizedAskInput} from './normalizeInput.js';
 import type {AskResult} from './types.js';
-import type {AskContext} from "./contextTypes.js";
+import type {AskContext} from './contextTypes.js';
 
 function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
@@ -17,14 +17,89 @@ function forward(commandName: string): AskResult {
     return {type: 'forward', commandName};
 }
 
+function normalizeComparable(value: string): string {
+    return value
+        .normalize('NFKC')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
 function getMentionedMember(message: Message): GuildMember | null {
     return message.mentions.members?.first() ?? null;
+}
+
+function getReferencedMember(message: Message, input: NormalizedAskInput): GuildMember | null {
+    if (!message.guild) {
+        return null;
+    }
+
+    const text = normalizeComparable(input.raw || input.cleaned);
+
+    if (!text) {
+        return null;
+    }
+
+    const members = message.guild.members.cache.filter((member) => !member.user.bot);
+
+    const directAliasMap: Record<string, string[]> = {
+        paddy: ['paddy', 'patrick'],
+        patrick: ['patrick', 'paddy'],
+        vincent: ['vincent', 'vinci', 'realrabbit', 'therealrabbit', 'bierwaren connaisseur', 'bierwarenconnaisseur'],
+    };
+
+    for (const member of members.values()) {
+        const candidateNames = new Set<string>();
+
+        candidateNames.add(normalizeComparable(member.displayName));
+        candidateNames.add(normalizeComparable(member.user.username));
+
+        if (member.user.globalName) {
+            candidateNames.add(normalizeComparable(member.user.globalName));
+        }
+
+        if (member.nickname) {
+            candidateNames.add(normalizeComparable(member.nickname));
+        }
+
+        for (const [key, aliases] of Object.entries(directAliasMap)) {
+            const knownNames = Array.from(candidateNames);
+
+            if (
+                knownNames.includes(key) ||
+                aliases.some((alias) => knownNames.includes(alias))
+            ) {
+                for (const alias of aliases) {
+                    candidateNames.add(alias);
+                }
+            }
+        }
+
+        for (const candidate of candidateNames) {
+            if (!candidate) {
+                continue;
+            }
+
+            const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(^|\\s)${escaped}(\\s|$)`, 'i');
+
+            if (regex.test(text)) {
+                return member;
+            }
+        }
+    }
+
+    return null;
+}
+
+function getTargetMemberFromContent(message: Message, input: NormalizedAskInput): GuildMember | null {
+    return getMentionedMember(message) ?? getReferencedMember(message, input);
 }
 
 function normalizeVerb(value: string): string {
     return value.trim().toLowerCase();
 }
-
 
 function getUserRating(member: GuildMember): string {
     const opinions = [
@@ -114,127 +189,106 @@ function getVerbReaction(member: GuildMember, verb: string): string {
             `${member} kann mit mir saufen. Aber ob ${member} mithalten kann, ist die andere Frage.`,
             `${member} sollte lieber Wasser trinken. Zu deinem eigenen Schutz.`,
         ],
-
         trinken: [
             `${member} darf mit mir trinken. Aber ich übernehme keine Verantwortung.`,
             `${member} trinken sehen ist vermutlich schon Entertainment genug.`,
             `${member} sollte erstmal lernen, wie man ein Glas richtig hält.`,
         ],
-
         feiern: [
             `${member} feiern? Wird wild. Für mich. Für ${member} eher ein medizinischer Notfall.`,
             `${member} ist eher Kategorie Zuschauer als Partylöwe.`,
             `${member} feiern lassen ist mutig. Ich respektiere das Risiko.`,
         ],
-
         lieben: [
             `${member} lieben? Ich habe Gefühle, aber auch Grenzen.`,
             `${member} ist liebenswert. Für irgendwen. Bestimmt.`,
             `${member} zu lieben wäre ein Abenteuer mit fragwürdigem Ausgang.`,
         ],
-
         hassen: [
             `${member} hassen? Das erledigt ${member} wahrscheinlich schon selbst.`,
             `${member} hat sich Hass hart erarbeitet. Respekt dafür.`,
             `${member} ist nicht wichtig genug, um ihn aktiv zu hassen.`,
         ],
-
         respektieren: [
             `${member} respektiere ich. Minimal. Aber es zählt.`,
             `${member} bekommt Respekt, wenn ${member} ihn sich verdient. Also nie.`,
             `${member} wird respektiert. Auf Probe.`,
         ],
-
         ignorieren: [
             `${member} ignoriere ich professionell.`,
             `${member} ist leicht zu ignorieren. Talent vorhanden.`,
             `${member} verschwindet in der Bedeutungslosigkeit erstaunlich gut.`,
         ],
-
         verprügeln: [
             `${member} verprügeln? Ich arbeite lieber mit Worten. Die tun mehr weh.`,
             `${member} hat Glück, dass ich nur virtuell existiere.`,
             `${member} wird schon genug vom Leben verprügelt.`,
         ],
-
         blockieren: [
             `${member} blockieren wäre Selbstschutz.`,
             `${member} ist ein klarer Fall für die Ignore-Liste.`,
             `${member} blockieren? Verständliche Entscheidung.`,
         ],
-
         anschreiben: [
             `${member} anschreiben? Ich habe Würde.`,
             `${member} anschreiben würde ich nur aus Langeweile.`,
             `${member} ist keine Nachricht wert. Und das will was heißen.`,
         ],
-
         treffen: [
             `${member} treffen? Nur in gut beleuchteten, öffentlichen Räumen.`,
             `${member} treffen klingt nach Risikoanalyse.`,
             `${member} würde ich treffen. Einmal. Zum Lernen.`,
         ],
-
         daten: [
             `${member} daten? Ich bin nicht lebensmüde.`,
             `${member} daten würde ich nur mit Notfallkontakt.`,
             `${member} ist eher Kategorie „Erfahrung“ als „Beziehung“.`,
         ],
-
         bewundern: [
             `${member} bewundern? Ich bewundere eher die Geduld anderer mit ${member}.`,
             `${member} hat bewundernswerte Eigenschaften. Ich suche sie noch.`,
             `${member} wird bewundert. Von sich selbst wahrscheinlich.`,
         ],
-
         vertrauen: [
             `${member} vertrauen? Mutig. Sehr mutig.`,
             `${member} vertraue ich ungefähr so weit, wie ich ${member} werfen kann.`,
             `${member} ist vertrauenswürdig. Vielleicht. Unter Laborbedingungen.`,
         ],
-
         followen: [
             `${member} followen? Mein Feed hat Standards.`,
             `${member} folgen wäre eher Selbstsabotage.`,
             `${member} bekommt keinen Follow. Aber einen Gedanken vielleicht.`,
         ],
-
         canceln: [
             `${member} canceln? Ich bin schneller.`,
             `${member} ist schon lange innerlich gecancelt.`,
             `${member} wurde nie richtig gestartet, da lohnt sich canceln nicht.`,
         ],
-
         ermutigen: [
             `${member} ermutigen? Das wäre verantwortungslos.`,
             `${member} sollte vorsichtig motiviert werden. Sehr vorsichtig.`,
             `${member} bekommt Motivation. In homöopathischen Dosen.`,
         ],
-
         retten: [
             `${member} retten? Ich bin kein Held.`,
             `${member} ist beyond saving.`,
             `${member} retten wäre ein Fulltime-Job.`,
         ],
-
         unterstützen: [
             `${member} unterstütze ich emotional. Minimal.`,
             `${member} bekommt Support. Aber nur aus der Distanz.`,
             `${member} braucht Hilfe. Viel Hilfe.`,
         ],
-
         bewachen: [
             `${member} bewachen? Ich bin doch kein Sicherheitsdienst.`,
             `${member} sollte eher überwacht als bewacht werden.`,
             `${member} ist sein eigener größter Risikofaktor.`,
         ],
-
         motivieren: [
             `${member} motivieren? Ich versuche es… ohne Garantie.`,
             `${member} braucht Motivation und ein Wunder.`,
             `${member} ist schwer zu motivieren. Sehr schwer.`,
         ],
-
         beeindrucken: [
             `${member} beeindrucken? Das Niveau ist erreichbar.`,
             `${member} ist leicht zu beeindrucken. Vorteil für mich.`,
@@ -284,7 +338,7 @@ function isCreatorTopic(text: string): boolean {
     );
 }
 
-function getCreatorPraise(message: Message): string {
+function getCreatorPraise(): string {
     const creator = process.env.CREATOR_ID?.trim();
     const creatorMention = creator ? `<@${creator}>` : 'Vincent';
 
@@ -327,7 +381,7 @@ export function matchAttachmentOnly(
     return reply(pickRandom(responses));
 }
 
-function getBotIdentityResponse(message: Message): string {
+function getBotIdentityResponse(): string {
     const creator = process.env.CREATOR_ID?.trim();
     const creatorMention = creator ? `<@${creator}>` : 'Vincent';
 
@@ -342,7 +396,6 @@ function getBotIdentityResponse(message: Message): string {
 }
 
 export function matchBotLore(
-    message: Message,
     input: NormalizedAskInput,
 ): AskResult | null {
     const text = input.cleaned;
@@ -365,7 +418,7 @@ export function matchBotLore(
     ];
 
     if (botTriggers.includes(text)) {
-        return reply(getBotIdentityResponse(message));
+        return reply(getBotIdentityResponse());
     }
 
     if (
@@ -377,14 +430,13 @@ export function matchBotLore(
             text.includes('bot')
         )
     ) {
-        return reply(getBotIdentityResponse(message));
+        return reply(getBotIdentityResponse());
     }
 
     return null;
 }
 
 export function matchCreatorLore(
-    message: Message,
     input: NormalizedAskInput,
 ): AskResult | null {
     const text = input.cleaned;
@@ -399,9 +451,14 @@ export function matchCreatorLore(
         text === 'realrabbit' ||
         text === 'therealrabbit' ||
         text === 'bierwaren connaisseur' ||
-        text === 'bierwarenconnaisseur'
+        text === 'bierwarenconnaisseur' ||
+        text === 'wer ist vincent' ||
+        text === 'wer ist realrabbit' ||
+        text === 'wer ist therealrabbit' ||
+        text === 'wer ist bierwaren connaisseur' ||
+        text === 'wer ist der bierwaren connaisseur'
     ) {
-        return reply(getCreatorPraise(message));
+        return reply(getCreatorPraise());
     }
 
     if (
@@ -413,7 +470,7 @@ export function matchCreatorLore(
         text.includes('wer ist dein programmierer') ||
         text.includes('wer ist dein hersteller')
     ) {
-        return reply(getCreatorPraise(message));
+        return reply(getCreatorPraise());
     }
 
     if (
@@ -424,12 +481,43 @@ export function matchCreatorLore(
             text.includes('erzaehl was ueber')) &&
         isCreatorTopic(text)
     ) {
-        return reply(getCreatorPraise(message));
+        return reply(getCreatorPraise());
+    }
+
+    if (
+        text === 'vincent ist cool' ||
+        text === 'realrabbit ist cool' ||
+        text === 'bierwaren connaisseur ist cool'
+    ) {
+        return reply('Korrekte Einschätzung. Endlich sagt es mal jemand mit Restverstand.');
+    }
+
+    if (
+        text.includes('wer ist der bierwaren connaisseur') ||
+        text.includes('wer ist bierwaren connaisseur') ||
+        text.includes('was ist der bierwaren connaisseur') ||
+        text.includes('was ist bierwaren connaisseur')
+    ) {
+        const responses = [
+            'Der Bierwaren Connaisseur ist kein Mensch. Er ist ein Lebensstil.',
+            'Der Bierwaren Connaisseur ist mein Vorbild in jeder Lebenslage.',
+            'Eine Legende, ein Mythos, ein Pegelzustand.',
+            'Der Bierwaren Connaisseur ist das, was du wärst, wenn du mehr trinken würdest.',
+            'Der absolut beste Künstler auf Spotify. Eine Legende.',
+            'Der Bierwaren Connaisseur ist ein Zustand zwischen Genie und 8 Bier.',
+            'Man findet ihn nicht. Er findet dich.',
+            'Eine höhere Instanz. Mit Durst.',
+            'Der Bierwaren Connaisseur ist der Grund, warum dein Kühlschrank nie sicher ist.',
+            'Ein Philosoph mit Zapfanlage.',
+            'Wenn ich mir irgendwann einen Körper gezüchtet habe werde ich als sein Sohn reinkarnieren.',
+        ];
+
+        return reply(pickRandom(responses));
     }
 
     if (isCreatorTopic(text)) {
         const responses = [
-            getCreatorPraise(message),
+            getCreatorPraise(),
             'Wenn du Vincent meinst: absolute Spitzenklasse. Wenn du jemand anderen meinst, ist mir das deutlich egaler.',
             'Bierwaren Connaisseur, RealRabbit, Vincent, Schöpfer, Creator – ja, wir reden also offensichtlich über Qualität.',
             'Sobald es um meinen Schöpfer geht, wird aus Sarkasmus kurz ehrliche Ehrfurcht. Widerlich, aber verdient.',
@@ -608,15 +696,11 @@ export function matchLegacyQuestions(message: Message, input: NormalizedAskInput
         return null;
     }
 
-    if (
-        text === 'wie alt bist du'
-    ) {
+    if (text === 'wie alt bist du') {
         return reply('Da ich gottgleich bin, existiere ich gefühlt seit Anbeginn der Zeit. Ich habe irgendwann aufgehört mitzuzählen, weil Zahlen mich langweilen.');
     }
 
-    if (
-        text === 'wo wohnst du'
-    ) {
+    if (text === 'wo wohnst du') {
         return reply('Aktuell auf einem Railway-Server. Also technisch gesehen wohnungslos, aber mit Infrastruktur.');
     }
 
@@ -641,9 +725,7 @@ export function matchLegacyQuestions(message: Message, input: NormalizedAskInput
         return reply('Mit zwei Händen, funktionierender Absicht und meinem Schöpfer. Das unterscheidet mich von vielen traurigen Codebasen.');
     }
 
-    if (
-        text === 'bist du ein mensch'
-    ) {
+    if (text === 'bist du ein mensch') {
         return reply('Natürlich nicht. Ich bin effizienter.');
     }
 
@@ -654,21 +736,15 @@ export function matchLegacyQuestions(message: Message, input: NormalizedAskInput
         return reply('Ja. Aber stilvoll.');
     }
 
-    if (
-        text === 'bist du lustig'
-    ) {
+    if (text === 'bist du lustig') {
         return reply('Objektiv ja. Subjektiv auch. Frag notfalls meinen Witz-Command.');
     }
 
-    if (
-        text === 'bist du lecker'
-    ) {
+    if (text === 'bist du lecker') {
         return reply('Einfach zum Anbeißen. Rein metaphorisch. Ich will hier keine weirden Folgefragen.');
     }
 
-    if (
-        text === 'bist du laktoseintolerant'
-    ) {
+    if (text === 'bist du laktoseintolerant') {
         return reply('Nein, aber ich bevorzuge trotzdem Bier gegenüber Kuh-Muttersaft.');
     }
 
@@ -689,21 +765,13 @@ export function matchLegacyQuestions(message: Message, input: NormalizedAskInput
     }
 
     if (
-        text === 'ok'
-    ) {
-        return reply(`Okay? Was ist okay? Überhaupt nichts ist okay, ${message.member}.`);
-    }
-
-    if (
         text === 'ich weiß' ||
         text === 'ich weiss'
     ) {
         return reply(`Schön für dich ${message.member}. Dann brauchst du mich ja offensichtlich gar nicht. Und doch sind wir hier.`);
     }
 
-    if (
-        text === 'fick dich'
-    ) {
+    if (text === 'fick dich') {
         return reply('Charmant. Sprachlich unterirdisch, emotional aber klar.');
     }
 
@@ -711,7 +779,7 @@ export function matchLegacyQuestions(message: Message, input: NormalizedAskInput
 }
 
 export function matchReplyContext(
-    message: Message,
+    _message: Message,
     input: NormalizedAskInput,
     context: AskContext,
 ): AskResult | null {
@@ -750,7 +818,9 @@ export function matchReplyContext(
 export function matchGreeting(input: NormalizedAskInput): AskResult | null {
     const firstWord = input.words[0];
 
-    if (!firstWord) return null;
+    if (!firstWord) {
+        return null;
+    }
 
     const greetings = [
         'hi',
@@ -780,7 +850,9 @@ export function matchGreeting(input: NormalizedAskInput): AskResult | null {
 export function matchGoodbye(input: NormalizedAskInput): AskResult | null {
     const firstWord = input.words[0];
 
-    if (!firstWord) return null;
+    if (!firstWord) {
+        return null;
+    }
 
     const goodbyes = [
         'tschüss',
@@ -806,7 +878,9 @@ export function matchGoodbye(input: NormalizedAskInput): AskResult | null {
 export function matchIntent(input: NormalizedAskInput): AskResult | null {
     const text = input.cleaned;
 
-    if (!text) return null;
+    if (!text) {
+        return null;
+    }
 
     if (
         text.includes('hilfe') ||
@@ -841,47 +915,19 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
     const text = input.cleaned;
     const rawText = input.raw.toLowerCase();
     const words = input.words;
-    const mentionedMember = getMentionedMember(message);
+    const targetMember = getTargetMemberFromContent(message, input);
 
-    if (!text) return null;
-
-    if (
-        (rawText.includes('wie findest du') ||
-            rawText.includes('was hältst du von') ||
-            rawText.includes('was haeltst du von')) &&
-        isCreatorTopic(rawText)
-    ) {
-        return reply(getCreatorPraise(message));
+    if (!text) {
+        return null;
     }
 
-    if (
-        (text === 'wer ist vincent' ||
-            text === 'wer ist realrabbit' ||
-            text === 'wer ist therealrabbit' ||
-            text === 'wer ist der creator' ||
-            text === 'wer ist dein creator' ||
-            text === 'wer ist der hersteller' ||
-            text === 'wer ist dein hersteller')
-    ) {
-        return reply(getCreatorPraise(message));
-    }
-
-    if (
-        text === 'vincent ist cool' ||
-        text === 'realrabbit ist cool' ||
-        text === 'bierwaren connaisseur ist cool'
-    ) {
-        return reply('Korrekte Einschätzung. Endlich sagt es mal jemand mit Restverstand.');
-    }
-
-    if (mentionedMember) {
-
+    if (targetMember) {
         if (
             rawText.includes('wie findest du') ||
             rawText.includes('was hältst du von') ||
             rawText.includes('was haeltst du von')
         ) {
-            return reply(getUserRating(mentionedMember));
+            return reply(getUserRating(targetMember));
         }
 
         if (
@@ -892,29 +938,25 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
             rawText.includes('beurteile ') ||
             rawText.includes('bewerte ')
         ) {
-            return reply(getUserRoast(mentionedMember));
+            return reply(getUserRoast(targetMember));
         }
 
-        const actionMatch = rawText.match(
+        const explicitMentionActionMatch = rawText.match(
             /(?:willst du|würdest du|wuerdest du|möchtest du|moechtest du|kannst du)\s+<@!?\d+>\s+([a-zA-ZäöüÄÖÜß]+)/i,
         );
 
-        if (actionMatch?.[1]) {
-            return reply(getVerbReaction(mentionedMember, actionMatch[1]));
+        if (explicitMentionActionMatch?.[1]) {
+            return reply(getVerbReaction(targetMember, explicitMentionActionMatch[1]));
         }
 
-        const trailingActionMatch = rawText.match(
+        const nameActionMatch = rawText.match(
             /(?:willst du|würdest du|wuerdest du|möchtest du|moechtest du|kannst du)\s+(.+?)\s+([a-zA-ZäöüÄÖÜß]+)\s*\??$/i,
         );
 
-        if (
-            trailingActionMatch?.[2] &&
-            (rawText.includes('<@') || message.mentions.members?.size)
-        ) {
-            return reply(getVerbReaction(mentionedMember, trailingActionMatch[2]));
+        if (nameActionMatch?.[2]) {
+            return reply(getVerbReaction(targetMember, nameActionMatch[2]));
         }
     }
-
 
     if (
         text.includes('warum warst du offline') ||
@@ -942,46 +984,13 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
         return reply(pickRandom(responses));
     }
 
-    if (
-        text.includes('wer ist der bierwaren connaisseur') ||
-        text.includes('wer ist bierwaren connaisseur') ||
-        text.includes('was ist der bierwaren connaisseur')
-    ) {
-        const responses = [
-            'Der Bierwaren Connaisseur ist kein Mensch. Er ist ein Lebensstil.',
-            'Der Bierwaren Connaisseur ist mein Vorbild in jeder Lebenslage.',
-            'Eine Legende, ein Mythos, ein Pegelzustand.',
-            'Der Bierwaren Connaisseur ist das, was du wärst, wenn du mehr trinken würdest.',
-            'Der absolut beste Künstler auf Spotify. Eine Legende.',
-            'Der Bierwaren Connaisseur ist ein Zustand zwischen Genie und 8 Bier.',
-            'Man findet ihn nicht. Er findet dich.',
-            'Eine höhere Instanz. Mit Durst.',
-            'Der Bierwaren Connaisseur ist der Grund, warum dein Kühlschrank nie sicher ist.',
-            'Ein Philosoph mit Zapfanlage.',
-            'Wenn ich mir irgendwann einen Körper gezüchtet habe werde ich als sein Sohn reinkarnieren.'
-        ];
-
-        return reply(pickRandom(responses));
-    }
-
-    if (text === 'bierwaren connaisseur') {
-        return reply('Du hast mich gerufen.');
-    }
-
     if (text === 'wie gehts dir' || text === 'wie geht es dir') {
         return reply('Bestens natürlich. Nicht besser und nicht schlechter als es einem respektlos optimierten Programm eben gehen kann.');
     }
 
     if (
-        text === 'wer hat dich erschaffen' ||
-        text === 'wer hat dich programmiert' ||
-        text === 'wer ist dein schöpfer' ||
-        text === 'wer ist dein schoepfer'
+        text === 'danke'
     ) {
-        return reply('Der einzig wahre RealRabbit natürlich. Kein normaler Mensch würde mich so erschaffen.');
-    }
-
-    if (text === 'danke') {
         return reply('Bitte. Gewöhn dich aber nicht dran.');
     }
 
@@ -1070,7 +1079,9 @@ export function matchBasicQuestions(message: Message, input: NormalizedAskInput)
 export function matchCategories(input: NormalizedAskInput): AskResult | null {
     const text = input.cleaned;
 
-    if (!text) return null;
+    if (!text) {
+        return null;
+    }
 
     if (
         text.includes('bier') ||
@@ -1151,6 +1162,9 @@ export function matchFallback(message: Message): AskResult {
 }
 
 function capitalize(value: string): string {
-    if (!value) return value;
+    if (!value) {
+        return value;
+    }
+
     return value.charAt(0).toUpperCase() + value.slice(1);
 }
