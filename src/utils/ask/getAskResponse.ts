@@ -5,10 +5,8 @@ import {
     matchBasicQuestions,
     matchBotLore,
     matchCategories,
-    matchChaosOverride,
     matchContextualFollowUp,
     matchCreatorLore,
-    matchFallback,
     matchGoodbye,
     matchGreeting,
     matchIntent,
@@ -39,7 +37,6 @@ export function getAskResponse(
         matchLegacyQuestions(message, input) ??
         matchBasicQuestions(message, input) ??
         matchCategories(input) ??
-        matchChaosOverride() ??
-        matchFallback(message)
+        null
     );
 }

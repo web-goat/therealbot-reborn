@@ -4,6 +4,7 @@ import {normalizeInput} from '../utils/ask/normalizeInput.js';
 import {commandMap} from '../utils/commandRegistry.js';
 import {trackAskInteraction} from '../services/askTrackingService.js';
 import {buildAskContext} from '../services/askContextService.js';
+import {buildChaosFallback, buildNonRepeatingRandomFallback, generateAskAiFallback,} from '../services/askAiService.js';
 
 export const askCommand: Command = {
     name: 'ask',
@@ -14,27 +15,50 @@ export const askCommand: Command = {
         const context = await buildAskContext(message);
         const result = getAskResponse(message, args, context);
 
-        if (!result) {
-            const fallback = 'Nerv mich nicht!!';
-            await trackAskInteraction(message, normalized.raw, normalized.cleaned, null, fallback);
-            await message.reply(fallback);
+        if (result) {
+            await trackAskInteraction(message, normalized.raw, normalized.cleaned, result);
+
+            if (result.type === 'reply') {
+                await message.reply(result.content);
+                return;
+            }
+
+            const forwardedCommand = commandMap.get(result.commandName);
+
+            if (!forwardedCommand) {
+                await message.reply('Ich wollte was Schlaues tun, aber mein Programmierer war wieder kreativ.');
+                return;
+            }
+
+            await forwardedCommand.execute(message, []);
             return;
         }
 
-        await trackAskInteraction(message, normalized.raw, normalized.cleaned, result);
+        const aiReply = await generateAskAiFallback(
+            message,
+            normalized.raw,
+            normalized.cleaned,
+            context,
+        );
 
-        if (result.type === 'reply') {
-            await message.reply(result.content);
+        if (aiReply) {
+            const aiResult = {type: 'reply' as const, content: aiReply};
+            await trackAskInteraction(message, normalized.raw, normalized.cleaned, aiResult);
+            await message.reply(aiReply);
             return;
         }
 
-        const forwardedCommand = commandMap.get(result.commandName);
+        const chaosReply = buildChaosFallback(context);
 
-        if (!forwardedCommand) {
-            await message.reply('Ich wollte was Schlaues tun, aber mein Programmierer war wieder kreativ.');
+        if (chaosReply) {
+            const chaosResult = {type: 'reply' as const, content: chaosReply};
+            await trackAskInteraction(message, normalized.raw, normalized.cleaned, chaosResult);
+            await message.reply(chaosReply);
             return;
         }
 
-        await forwardedCommand.execute(message, []);
+        const fallback = buildNonRepeatingRandomFallback(message, context);
+        await trackAskInteraction(message, normalized.raw, normalized.cleaned, null, fallback);
+        await message.reply(fallback);
     },
 };
