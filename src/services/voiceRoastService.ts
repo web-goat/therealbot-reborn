@@ -1,6 +1,7 @@
 import {entersState, getVoiceConnection, joinVoiceChannel, VoiceConnectionStatus,} from '@discordjs/voice';
 import type {GuildMember, VoiceBasedChannel, VoiceState} from 'discord.js';
 import {playSpeechTextInVoiceChannel} from './voiceSpeechService.js';
+import {generateAiRoast} from './voiceRoastAiService.js';
 
 const CHANNEL_COOLDOWN_MS = 5 * 60_000;
 const ACTIVE_CHANNELS = new Set<string>();
@@ -19,10 +20,6 @@ export interface VoiceRoastPlan {
 }
 
 const voiceRoastMemoryByChannel = new Map<string, VoiceRoastMemory>();
-
-function pickRandom<T>(items: readonly T[]): T {
-    return items[Math.floor(Math.random() * items.length)];
-}
 
 function getHumanMembers(channel: VoiceBasedChannel): GuildMember[] {
     return channel.members
@@ -95,38 +92,19 @@ function getJoinedHumanMember(
     return joinedMember;
 }
 
-function getDuoRoastLine(memberA: GuildMember, memberB: GuildMember): string {
-    const a = memberA.displayName;
-    const b = memberB.displayName;
+function buildFallbackRoastText(plan: VoiceRoastPlan): string {
+    if (plan.mode === 'duo') {
+        const [memberA, memberB] = plan.targets;
+        const a = memberA?.displayName ?? 'Unbekannt';
+        const b = memberB?.displayName ?? 'Unbekannt';
 
-    const lines = [
-        `${a} und ${b}, beeindruckend. Zwei Menschen in einem Voice Channel und trotzdem klingt das nach kollektivem Fehlstart.`,
-        `${a}, ${b}. Ich wollte nur kurz prüfen, ob man soziale Unbeholfenheit auch stereo übertragen kann.`,
-        `Ah perfekt, ${a} und ${b} sitzen allein im Voice. Das Elend organisiert sich also inzwischen selbst.`,
-        `${a} und ${b}, starke Konstellation. Menschlich schwach, aber dramaturgisch exzellent.`,
-        `${a}, ${b}. Ich hab schon bessere Duos erlebt. Zum Beispiel Stille und Abstand.`,
-        `${a} und ${b} zusammen im Channel. Romantisch ist anders, tragisch aber sehr nah dran.`,
-        `${a}, ${b}. Ihr seid wie ein Gruppenprojekt, bei dem beide nichts können, aber trotzdem reden.`,
-    ];
+        return `${a} und ${b}, beeindruckend. Zwei Menschen in einem Voice Channel und trotzdem klingt das nach kollektivem Fehlstart.`;
+    }
 
-    return pickRandom(lines);
-}
+    const [target] = plan.targets;
+    const joinedName = target?.displayName ?? 'Unbekannt';
 
-function getNewcomerRoastLine(target: GuildMember, others: GuildMember[]): string {
-    const joinedName = target.displayName;
-    const otherNames = others.map((member) => member.displayName).join(' und ');
-
-    const lines = [
-        `${joinedName} joint dazu und senkt den durchschnittlichen Gesprächswert sofort messbar. Stark reingekommen.`,
-        `${joinedName} ist jetzt auch da. Genau das hat diesem Channel noch gefehlt. Weitere Unruhe.`,
-        `${joinedName}, schön dass du da bist. ${otherNames} wirkten gerade halbwegs stabil, dann kamst du.`,
-        `${joinedName} joint und plötzlich ist die Audioqualität nicht mehr das größte Problem hier.`,
-        `${joinedName}, ich will ehrlich sein. Dein Join hatte die Energie eines Bugs mit Mikrofonrechten.`,
-        `${joinedName} ist jetzt im Voice. Ich wollte sowieso testen, wie schnell eine Situation unangenehm werden kann.`,
-        `${joinedName}, dein Timing ist beeindruckend. Negativ, aber beeindruckend.`,
-    ];
-
-    return pickRandom(lines);
+    return `${joinedName} joint dazu und senkt den durchschnittlichen Gesprächswert sofort messbar. Stark reingekommen.`;
 }
 
 export function getVoiceRoastPlan(input: {
@@ -167,7 +145,7 @@ export function getVoiceRoastPlan(input: {
                 mode: 'duo',
                 targets: humans,
                 allHumans: humans,
-                roastText: getDuoRoastLine(humans[0], humans[1]),
+                roastText: '',
             };
         }
 
@@ -177,10 +155,7 @@ export function getVoiceRoastPlan(input: {
                 mode: 'newcomer',
                 targets: [joinedHuman],
                 allHumans: humans,
-                roastText: getNewcomerRoastLine(
-                    joinedHuman,
-                    humans.filter((member) => member.id !== joinedHuman.id),
-                ),
+                roastText: '',
             };
         }
 
@@ -199,10 +174,7 @@ export function getVoiceRoastPlan(input: {
             mode: 'newcomer',
             targets: [joinedHuman],
             allHumans: humans,
-            roastText: getNewcomerRoastLine(
-                joinedHuman,
-                humans.filter((member) => member.id !== joinedHuman.id),
-            ),
+            roastText: '',
         };
     }
 
@@ -212,7 +184,7 @@ export function getVoiceRoastPlan(input: {
             mode: 'duo',
             targets: humans,
             allHumans: humans,
-            roastText: getDuoRoastLine(humans[0], humans[1]),
+            roastText: '',
         };
     }
 
@@ -220,7 +192,7 @@ export function getVoiceRoastPlan(input: {
 }
 
 export async function runVoiceRoastForPlan(plan: VoiceRoastPlan): Promise<void> {
-    const {channel, roastText} = plan;
+    const {channel} = plan;
 
     if (ACTIVE_CHANNELS.has(channel.id)) {
         return;
@@ -238,6 +210,15 @@ export async function runVoiceRoastForPlan(plan: VoiceRoastPlan): Promise<void> 
         });
 
         await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
+
+        let roastText: string;
+
+        try {
+            roastText = await generateAiRoast(plan);
+        } catch (error) {
+            console.error('Fehler bei AI-Voice-Roast-Generierung, nutze Fallback:', error);
+            roastText = buildFallbackRoastText(plan);
+        }
 
         console.log(`[VOICE-ROAST] ${channel.guild.name} #${channel.name}: ${roastText}`);
 

@@ -13,6 +13,7 @@ if (!apiKey) {
 const openai = new OpenAI({apiKey});
 
 const TTS_MODEL = process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts';
+const TEXT_MODEL = 'gpt-4o-mini';
 
 const AVAILABLE_VOICES = [
     'marin',
