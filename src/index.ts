@@ -6,6 +6,7 @@ import {registerMessageCreateEvent} from './events/messageCreate.js';
 import {registerMessageDeleteEvent} from './events/messageDelete.js';
 import {registerMessageUpdateEvent} from './events/messageUpdate.js';
 import {registerReadyEvent} from './events/ready.js';
+import {registerVoiceStateUpdateEvent} from './events/voiceStateUpdate.js';
 import {initializeAutotalkState} from './utils/autotalkState.js';
 
 await initializeDatabase();
@@ -26,5 +27,6 @@ registerGuildMemberAddEvent(client);
 registerMessageCreateEvent(client);
 registerMessageDeleteEvent(client);
 registerMessageUpdateEvent(client);
+registerVoiceStateUpdateEvent(client);
 
 await client.login(config.token);

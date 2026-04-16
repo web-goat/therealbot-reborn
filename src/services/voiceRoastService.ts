@@ -1,0 +1,263 @@
+import {entersState, getVoiceConnection, joinVoiceChannel, VoiceConnectionStatus,} from '@discordjs/voice';
+import type {GuildMember, VoiceBasedChannel, VoiceState} from 'discord.js';
+import {playSpeechTextInVoiceChannel} from './voiceSpeechService.js';
+
+const CHANNEL_COOLDOWN_MS = 5 * 60_000;
+const ACTIVE_CHANNELS = new Set<string>();
+
+interface VoiceRoastMemory {
+    lastTriggeredAt: number;
+    lastMemberIds: string[];
+}
+
+export interface VoiceRoastPlan {
+    channel: VoiceBasedChannel;
+    mode: 'duo' | 'newcomer';
+    targets: GuildMember[];
+    allHumans: GuildMember[];
+    roastText: string;
+}
+
+const voiceRoastMemoryByChannel = new Map<string, VoiceRoastMemory>();
+
+function pickRandom<T>(items: readonly T[]): T {
+    return items[Math.floor(Math.random() * items.length)];
+}
+
+function getHumanMembers(channel: VoiceBasedChannel): GuildMember[] {
+    return channel.members
+        .filter((member) => !member.user.bot)
+        .map((member) => member);
+}
+
+function sortIds(ids: string[]): string[] {
+    return [...ids].sort();
+}
+
+function sameMemberSet(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) {
+        return false;
+    }
+
+    const left = sortIds(a);
+    const right = sortIds(b);
+
+    return left.every((value, index) => value === right[index]);
+}
+
+function hasCooldownExpired(channelId: string): boolean {
+    const memory = voiceRoastMemoryByChannel.get(channelId);
+
+    if (!memory) {
+        return true;
+    }
+
+    return Date.now() - memory.lastTriggeredAt >= CHANNEL_COOLDOWN_MS;
+}
+
+function rememberChannelState(channelId: string, memberIds: string[]): void {
+    voiceRoastMemoryByChannel.set(channelId, {
+        lastTriggeredAt: Date.now(),
+        lastMemberIds: sortIds(memberIds),
+    });
+}
+
+function getJoinedHumanMember(
+    oldState: VoiceState,
+    newState: VoiceState,
+    botUserId: string,
+): GuildMember | null {
+    const joinedMember = newState.member;
+
+    if (!joinedMember) {
+        return null;
+    }
+
+    if (joinedMember.user.bot) {
+        return null;
+    }
+
+    if (joinedMember.id === botUserId) {
+        return null;
+    }
+
+    const oldChannelId = oldState.channelId;
+    const newChannelId = newState.channelId;
+
+    if (!newChannelId) {
+        return null;
+    }
+
+    if (oldChannelId === newChannelId) {
+        return null;
+    }
+
+    return joinedMember;
+}
+
+function getDuoRoastLine(memberA: GuildMember, memberB: GuildMember): string {
+    const a = memberA.displayName;
+    const b = memberB.displayName;
+
+    const lines = [
+        `${a} und ${b}, beeindruckend. Zwei Menschen in einem Voice Channel und trotzdem klingt das nach kollektivem Fehlstart.`,
+        `${a}, ${b}. Ich wollte nur kurz prüfen, ob man soziale Unbeholfenheit auch stereo übertragen kann.`,
+        `Ah perfekt, ${a} und ${b} sitzen allein im Voice. Das Elend organisiert sich also inzwischen selbst.`,
+        `${a} und ${b}, starke Konstellation. Menschlich schwach, aber dramaturgisch exzellent.`,
+        `${a}, ${b}. Ich hab schon bessere Duos erlebt. Zum Beispiel Stille und Abstand.`,
+        `${a} und ${b} zusammen im Channel. Romantisch ist anders, tragisch aber sehr nah dran.`,
+        `${a}, ${b}. Ihr seid wie ein Gruppenprojekt, bei dem beide nichts können, aber trotzdem reden.`,
+    ];
+
+    return pickRandom(lines);
+}
+
+function getNewcomerRoastLine(target: GuildMember, others: GuildMember[]): string {
+    const joinedName = target.displayName;
+    const otherNames = others.map((member) => member.displayName).join(' und ');
+
+    const lines = [
+        `${joinedName} joint dazu und senkt den durchschnittlichen Gesprächswert sofort messbar. Stark reingekommen.`,
+        `${joinedName} ist jetzt auch da. Genau das hat diesem Channel noch gefehlt. Weitere Unruhe.`,
+        `${joinedName}, schön dass du da bist. ${otherNames} wirkten gerade halbwegs stabil, dann kamst du.`,
+        `${joinedName} joint und plötzlich ist die Audioqualität nicht mehr das größte Problem hier.`,
+        `${joinedName}, ich will ehrlich sein. Dein Join hatte die Energie eines Bugs mit Mikrofonrechten.`,
+        `${joinedName} ist jetzt im Voice. Ich wollte sowieso testen, wie schnell eine Situation unangenehm werden kann.`,
+        `${joinedName}, dein Timing ist beeindruckend. Negativ, aber beeindruckend.`,
+    ];
+
+    return pickRandom(lines);
+}
+
+export function getVoiceRoastPlan(input: {
+    oldState: VoiceState;
+    newState: VoiceState;
+    botUserId: string;
+}): VoiceRoastPlan | null {
+    const {oldState, newState, botUserId} = input;
+    const channel = newState.channel;
+
+    if (!channel) {
+        return null;
+    }
+
+    if (ACTIVE_CHANNELS.has(channel.id)) {
+        return null;
+    }
+
+    if (channel.members.has(botUserId)) {
+        return null;
+    }
+
+    const humans = getHumanMembers(channel);
+
+    if (humans.length < 2) {
+        return null;
+    }
+
+    const currentMemberIds = humans.map((member) => member.id);
+    const memory = voiceRoastMemoryByChannel.get(channel.id);
+    const cooldownExpired = hasCooldownExpired(channel.id);
+    const joinedHuman = getJoinedHumanMember(oldState, newState, botUserId);
+
+    if (!memory) {
+        if (humans.length === 2) {
+            return {
+                channel,
+                mode: 'duo',
+                targets: humans,
+                allHumans: humans,
+                roastText: getDuoRoastLine(humans[0], humans[1]),
+            };
+        }
+
+        if (joinedHuman) {
+            return {
+                channel,
+                mode: 'newcomer',
+                targets: [joinedHuman],
+                allHumans: humans,
+                roastText: getNewcomerRoastLine(
+                    joinedHuman,
+                    humans.filter((member) => member.id !== joinedHuman.id),
+                ),
+            };
+        }
+
+        return null;
+    }
+
+    const sameAsLastState = sameMemberSet(memory.lastMemberIds, currentMemberIds);
+
+    if (sameAsLastState && !cooldownExpired) {
+        return null;
+    }
+
+    if (joinedHuman && !memory.lastMemberIds.includes(joinedHuman.id)) {
+        return {
+            channel,
+            mode: 'newcomer',
+            targets: [joinedHuman],
+            allHumans: humans,
+            roastText: getNewcomerRoastLine(
+                joinedHuman,
+                humans.filter((member) => member.id !== joinedHuman.id),
+            ),
+        };
+    }
+
+    if (humans.length === 2 && cooldownExpired) {
+        return {
+            channel,
+            mode: 'duo',
+            targets: humans,
+            allHumans: humans,
+            roastText: getDuoRoastLine(humans[0], humans[1]),
+        };
+    }
+
+    return null;
+}
+
+export async function runVoiceRoastForPlan(plan: VoiceRoastPlan): Promise<void> {
+    const {channel, roastText} = plan;
+
+    if (ACTIVE_CHANNELS.has(channel.id)) {
+        return;
+    }
+
+    ACTIVE_CHANNELS.add(channel.id);
+
+    try {
+        const connection = joinVoiceChannel({
+            channelId: channel.id,
+            guildId: channel.guild.id,
+            adapterCreator: channel.guild.voiceAdapterCreator,
+            selfDeaf: false,
+            selfMute: true,
+        });
+
+        await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
+
+        console.log(`[VOICE-ROAST] ${channel.guild.name} #${channel.name}: ${roastText}`);
+
+        await playSpeechTextInVoiceChannel(connection, roastText);
+
+        rememberChannelState(
+            channel.id,
+            plan.allHumans.map((member) => member.id),
+        );
+
+        connection.destroy();
+    } catch (error) {
+        const existingConnection = getVoiceConnection(channel.guild.id);
+
+        if (existingConnection) {
+            existingConnection.destroy();
+        }
+
+        throw error;
+    } finally {
+        ACTIVE_CHANNELS.delete(channel.id);
+    }
+}
