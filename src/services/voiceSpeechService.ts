@@ -6,17 +6,25 @@ import {
     NoSubscriberBehavior,
     type VoiceConnection,
 } from '@discordjs/voice';
-import {unlink} from 'node:fs/promises';
+import {stat, unlink} from 'node:fs/promises';
 import {generateSpeechFile} from './voiceTtsService.js';
 
 export async function playSpeechTextInVoiceChannel(
     connection: VoiceConnection,
     text: string,
 ): Promise<void> {
-    console.log('[VOICE] Starte TTS für Text:', text);
+    console.log('[VOICE] Start playback for text:', text);
 
     const audioFilePath = await generateSpeechFile(text);
-    console.log('[VOICE] TTS-Datei erzeugt:', audioFilePath);
+    console.log('[VOICE] File generated:', audioFilePath);
+
+    // Datei prüfen
+    try {
+        const fileStats = await stat(audioFilePath);
+        console.log('[VOICE] File size:', fileStats.size);
+    } catch (err) {
+        console.error('[VOICE] File stat error:', err);
+    }
 
     const player = createAudioPlayer({
         behaviors: {
@@ -24,8 +32,12 @@ export async function playSpeechTextInVoiceChannel(
         },
     });
 
+    player.on('stateChange', (oldState, newState) => {
+        console.log('[VOICE] state:', oldState.status, '->', newState.status);
+    });
+
     player.on('error', (error) => {
-        console.error('[VOICE] Player-Fehler:', error);
+        console.error('[VOICE] Player error:', error);
     });
 
     try {
@@ -34,28 +46,30 @@ export async function playSpeechTextInVoiceChannel(
         });
 
         if (resource.volume) {
-            resource.volume.setVolume(0.95);
+            resource.volume.setVolume(1);
         }
 
         const subscription = connection.subscribe(player);
-        console.log('[VOICE] Subscription vorhanden:', Boolean(subscription));
+        console.log('[VOICE] Subscription exists:', Boolean(subscription));
 
         player.play(resource);
-        console.log('[VOICE] Player.play(resource) aufgerufen');
+        console.log('[VOICE] play() called');
 
         await entersState(player, AudioPlayerStatus.Playing, 10_000);
-        console.log('[VOICE] Player ist im Status PLAYING');
+        console.log('[VOICE] Player is PLAYING');
 
         await entersState(player, AudioPlayerStatus.Idle, 60_000);
-        console.log('[VOICE] Player ist wieder IDLE');
+        console.log('[VOICE] Player finished (IDLE)');
+    } catch (err) {
+        console.error('[VOICE] Playback failed:', err);
     } finally {
         player.stop();
 
         try {
             await unlink(audioFilePath);
-            console.log('[VOICE] Temporäre TTS-Datei gelöscht');
-        } catch (error) {
-            console.error('[VOICE] Temporäre TTS-Datei konnte nicht gelöscht werden:', error);
+            console.log('[VOICE] Temp file deleted');
+        } catch (err) {
+            console.error('[VOICE] Delete failed:', err);
         }
     }
 }
