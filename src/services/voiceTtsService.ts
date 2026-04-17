@@ -52,10 +52,14 @@ export async function generateSpeechFile(text: string): Promise<string> {
         throw new Error('Kein gültiger Text für TTS vorhanden');
     }
 
+    console.log('[TTS] Bereinigter Text:', cleanedText);
+
     const outputPath = buildTempFilePath();
     await ensureTempDir(outputPath);
 
     const voice = pickRandom(AVAILABLE_VOICES);
+    console.log('[TTS] Verwende Stimme:', voice);
+    console.log('[TTS] Modell:', TTS_MODEL);
 
     const response = await openai.audio.speech.create({
         model: TTS_MODEL,
@@ -64,6 +68,8 @@ export async function generateSpeechFile(text: string): Promise<string> {
     });
 
     const buffer = Buffer.from(await response.arrayBuffer());
+    console.log('[TTS] Buffer-Länge:', buffer.length);
+
     await writeFile(outputPath, buffer);
 
     return outputPath;

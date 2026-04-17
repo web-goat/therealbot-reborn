@@ -206,7 +206,7 @@ export async function runVoiceRoastForPlan(plan: VoiceRoastPlan): Promise<void> 
             guildId: channel.guild.id,
             adapterCreator: channel.guild.voiceAdapterCreator,
             selfDeaf: false,
-            selfMute: true,
+            selfMute: false,
         });
 
         await entersState(connection, VoiceConnectionStatus.Ready, 10_000);
