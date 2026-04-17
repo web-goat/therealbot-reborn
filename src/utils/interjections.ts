@@ -40,15 +40,41 @@ const keywordReactions: Record<string, string[]> = {
 };
 
 const lastInterjectionAtByChannel = new Map<string, number>();
+const lastInterjectionContentByChannel = new Map<string, string>();
 
 function pickRandom<T>(items: T[]): T {
     return items[Math.floor(Math.random() * items.length)];
+}
+
+function normalizeComparable(value: string): string {
+    return value
+        .normalize('NFKC')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function pickNonRepeating(items: string[], blocked: string | null): string {
+    if (!blocked) {
+        return pickRandom(items);
+    }
+
+    const normalizedBlocked = normalizeComparable(blocked);
+    const available = items.filter((item) => normalizeComparable(item) !== normalizedBlocked);
+
+    if (available.length > 0) {
+        return pickRandom(available);
+    }
+
+    return pickRandom(items);
 }
 
 export function getInterjection(channelId: string, content: string): string | null {
     const now = Date.now();
     const {cooldownMs, randomChance} = getAutotalkConfig();
     const lastInterjectionAt = lastInterjectionAtByChannel.get(channelId) ?? 0;
+    const lastInterjectionContent = lastInterjectionContentByChannel.get(channelId) ?? null;
 
     if (now - lastInterjectionAt < cooldownMs) {
         return null;
@@ -62,8 +88,10 @@ export function getInterjection(channelId: string, content: string): string | nu
 
     for (const [keyword, responses] of Object.entries(keywordReactions)) {
         if (cleaned.includes(keyword)) {
+            const picked = pickNonRepeating(responses, lastInterjectionContent);
             lastInterjectionAtByChannel.set(channelId, now);
-            return pickRandom(responses);
+            lastInterjectionContentByChannel.set(channelId, picked);
+            return picked;
         }
     }
 
@@ -71,6 +99,8 @@ export function getInterjection(channelId: string, content: string): string | nu
         return null;
     }
 
+    const picked = pickNonRepeating(randomComments, lastInterjectionContent);
     lastInterjectionAtByChannel.set(channelId, now);
-    return pickRandom(randomComments);
+    lastInterjectionContentByChannel.set(channelId, picked);
+    return picked;
 }

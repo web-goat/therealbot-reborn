@@ -2,6 +2,7 @@ import type {Message} from 'discord.js';
 import {buildAskContext} from './askContextService.js';
 import {getAskResponse} from '../utils/ask/getAskResponse.js';
 import {getInterjection} from '../utils/interjections.js';
+import {generateAiAutotalkComment} from './askAiService.js';
 
 function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
@@ -224,6 +225,33 @@ function getGhostAskPrompts(content: string): string[] {
     return prompts;
 }
 
+function shouldUseAiAutotalk(message: Message): boolean {
+    const text = normalizeText(message.content);
+
+    if (!text || text.length < 18) {
+        return false;
+    }
+
+    if (text.split(' ').length < 4) {
+        return false;
+    }
+
+    const excludedHints = [
+        'http',
+        'https',
+        'www',
+        '.de',
+        '.com',
+        ':',
+    ];
+
+    if (excludedHints.some((hint) => message.content.includes(hint))) {
+        return false;
+    }
+
+    return Math.random() < 0.18;
+}
+
 export async function getAutotalkResponse(message: Message): Promise<string | null> {
     if (!message.guild) {
         return null;
@@ -247,5 +275,19 @@ export async function getAutotalkResponse(message: Message): Promise<string | nu
         }
     }
 
-    return getInterjection(message.channel.id, message.content);
+    const interjection = getInterjection(message.channel.id, message.content);
+
+    if (interjection) {
+        return interjection;
+    }
+
+    if (shouldUseAiAutotalk(message)) {
+        const aiComment = await generateAiAutotalkComment(message);
+
+        if (aiComment) {
+            return aiComment;
+        }
+    }
+
+    return null;
 }

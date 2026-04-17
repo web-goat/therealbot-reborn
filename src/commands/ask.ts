@@ -4,7 +4,12 @@ import {normalizeInput} from '../utils/ask/normalizeInput.js';
 import {commandMap} from '../utils/commandRegistry.js';
 import {trackAskInteraction} from '../services/askTrackingService.js';
 import {buildAskContext} from '../services/askContextService.js';
-import {buildChaosFallback, buildNonRepeatingRandomFallback, generateAskAiFallback,} from '../services/askAiService.js';
+import {
+    buildChaosFallback,
+    buildNonRepeatingRandomFallback,
+    buildNonRepeatingStarter,
+    generateAskAiFallback,
+} from '../services/askAiService.js';
 import {generateCurrentInfoReply} from '../services/askCurrentInfoService.js';
 
 function sleep(ms: number): Promise<void> {
@@ -42,7 +47,16 @@ export const askCommand: Command = {
                 );
 
                 if (aiReply) {
-                    const finalReply = `Na gut. Ich hab's mir anders überlegt. ${aiReply}`;
+                    const starters = [
+                        'Na gut. Ich hab\'s mir anders überlegt.',
+                        'Na schön. Ein kurzer Moment der Großzügigkeit.',
+                        'Widerwillig, aber effizient: hier die brauchbare Version.',
+                        'Ich hasse es, hilfreich zu wirken, aber bitte.',
+                        'Ausnahmsweise liefere ich jetzt sogar Inhalt nach.',
+                    ];
+
+                    const starter = buildNonRepeatingStarter(starters, context);
+                    const finalReply = `${starter} ${aiReply}`;
                     const aiResult = {type: 'reply' as const, content: finalReply};
                     await trackAskInteraction(message, normalized.raw, normalized.cleaned, aiResult);
                     await message.reply(finalReply);
@@ -64,7 +78,16 @@ export const askCommand: Command = {
                 );
 
                 if (currentInfoReply) {
-                    const finalReply = `Na gut. Weil ich eh alles weiß: ${currentInfoReply}`;
+                    const starters = [
+                        'Na gut. Weil ich eh alles weiß:',
+                        'Schön, dann jetzt die peinlich präzise Version:',
+                        'Widerwillig serviere ich dir jetzt sogar echte Gegenwartsinfos:',
+                        'Ich hab kurz in die Realität geschaut. Bitte sehr:',
+                        'Ausnahmsweise mit belastbarem Inhalt statt nur Attitüde:',
+                    ];
+
+                    const starter = buildNonRepeatingStarter(starters, context);
+                    const finalReply = `${starter} ${currentInfoReply}`;
                     const currentInfoResult = {type: 'reply' as const, content: finalReply};
                     await trackAskInteraction(message, normalized.raw, normalized.cleaned, currentInfoResult);
                     await message.reply(finalReply);
@@ -80,7 +103,15 @@ export const askCommand: Command = {
                 );
 
                 if (aiReply) {
-                    const finalReply = `Na gut. Ich hab's mir anders überlegt. ${aiReply}`;
+                    const starters = [
+                        'Na gut. Ich hab\'s mir anders überlegt.',
+                        'Na schön. Dann eben ohne Live-Glanz, aber mit Verstand.',
+                        'Ausnahmsweise helfe ich dir jetzt wirklich weiter.',
+                        'Widerwillig liefere ich die brauchbare Version nach.',
+                    ];
+
+                    const starter = buildNonRepeatingStarter(starters, context);
+                    const finalReply = `${starter} ${aiReply}`;
                     const aiResult = {type: 'reply' as const, content: finalReply};
                     await trackAskInteraction(message, normalized.raw, normalized.cleaned, aiResult);
                     await message.reply(finalReply);

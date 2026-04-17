@@ -13,6 +13,7 @@ if (!apiKey) {
 const openai = new OpenAI({apiKey});
 
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL?.trim() || 'gpt-4o-mini';
+const AUTOTALK_AI_MODEL = process.env.OPENAI_AUTOTALK_MODEL?.trim() || TEXT_MODEL;
 
 function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
@@ -93,8 +94,46 @@ function isAskAiFallbackCandidate(cleanedInput: string, force = false): boolean 
         return true;
     }
 
-    if (text.split(' ').length >= 3) {
+    const directBotPhrases = [
+        'du ',
+        'bist du ',
+        'warst du ',
+        'kannst du ',
+        'würdest du ',
+        'wuerdest du ',
+        'willst du ',
+        'the real bot ',
+        'therealbot ',
+    ];
+
+    if (directBotPhrases.some((phrase) => text.startsWith(phrase))) {
         return true;
+    }
+
+    const words = text.split(' ').filter(Boolean);
+
+    if (words.length >= 3) {
+        return true;
+    }
+
+    if (words.length === 2) {
+        const [first, second] = words;
+
+        const weirdDirectOpeners = new Set([
+            'du',
+            'dein',
+            'deine',
+            'deiner',
+            'bist',
+            'warst',
+            'kannst',
+            'willst',
+            'bro',
+        ]);
+
+        if (weirdDirectOpeners.has(first) && second.length >= 3) {
+            return true;
+        }
     }
 
     return text.length >= 12;
@@ -211,6 +250,18 @@ function pickNonRepeating<T extends string>(items: readonly T[], blockedContents
     return pickRandom(items);
 }
 
+export function buildNonRepeatingStarter(
+    starters: readonly string[],
+    context: AskContext,
+): string {
+    const blocked = [
+        ...getRecentResponseContents(context),
+        ...getRecentExactResponseContents(context),
+    ];
+
+    return pickNonRepeating(starters, blocked);
+}
+
 export async function generateAskAiFallback(
     message: Message,
     rawInput: string,
@@ -262,6 +313,72 @@ export async function generateAskAiFallback(
         return text;
     } catch (error) {
         console.error('Fehler beim AI-Ask-Fallback:', error);
+        return null;
+    }
+}
+
+export async function generateAiAutotalkComment(
+    message: Message,
+): Promise<string | null> {
+    if (!message.guild) {
+        return null;
+    }
+
+    const content = message.content.trim();
+
+    if (!content || content.length < 18) {
+        return null;
+    }
+
+    try {
+        console.log('[AUTOTALK-AI] model=%s content=%s', AUTOTALK_AI_MODEL, content);
+
+        const response = await openai.responses.create({
+            model: AUTOTALK_AI_MODEL,
+            input: [
+                {
+                    role: 'system',
+                    content: `
+Du bist TheRealBot, ein sarkastischer Discord-Bot.
+
+Aufgabe:
+Kommentiere eine gelesene Nachricht mit genau EINEM kurzen Satz.
+
+Stil:
+- trocken
+- spöttisch
+- leicht arrogant
+- knapp
+- nicht hilfreich im Support-Sinne, sondern kommentierend
+
+Regeln:
+- genau 1 Satz
+- maximal 25 Wörter
+- keine Emojis
+- kein Rassismus
+- keine diskriminierenden Aussagen
+- keine Witze über Nationalsozialismus, Faschismus, Diktaturen, Kriege oder reales Leid
+- nicht zu generisch
+- keine Fragen am Ende
+`,
+                },
+                {
+                    role: 'user',
+                    content: `Kommentiere diese Nachricht kurz als TheRealBot:\n"${content}"`,
+                },
+            ],
+            max_output_tokens: 60,
+        });
+
+        const text = response.output_text?.trim();
+
+        if (!text) {
+            return null;
+        }
+
+        return text;
+    } catch (error) {
+        console.error('Fehler beim AI-Autotalk:', error);
         return null;
     }
 }
