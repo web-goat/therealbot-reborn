@@ -156,10 +156,7 @@ function getGhostAskPrompts(content: string): string[] {
         prompts.push('wie findest du vincent');
     }
 
-    if (
-        text.includes('therealbot') ||
-        text.includes('bot')
-    ) {
+    if (text.includes('therealbot')) {
         prompts.push('wer bist du');
     }
 
@@ -197,9 +194,7 @@ function getGhostAskPrompts(content: string): string[] {
         prompts.push('wie');
     }
 
-    if (
-        text.includes('wann')
-    ) {
+    if (text.includes('wann')) {
         prompts.push('wann');
     }
 
@@ -210,15 +205,11 @@ function getGhostAskPrompts(content: string): string[] {
         prompts.push('kannst du helfen');
     }
 
-    if (
-        text.includes('witz')
-    ) {
+    if (text.includes('witz')) {
         prompts.push('erzähl einen witz');
     }
 
-    if (
-        text.includes('weisheit')
-    ) {
+    if (text.includes('weisheit')) {
         prompts.push('erleuchte mich');
     }
 

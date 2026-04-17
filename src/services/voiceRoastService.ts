@@ -98,7 +98,7 @@ function buildFallbackRoastText(plan: VoiceRoastPlan): string {
         const a = memberA?.displayName ?? 'Unbekannt';
         const b = memberB?.displayName ?? 'Unbekannt';
 
-        return `${a} und ${b}, beeindruckend. Zwei Menschen in einem Voice Channel und trotzdem klingt das nach kollektivem Fehlstart.`;
+        return `${a} und ${b} gleichzeitig im Voice. Beeindruckend, wie man Einsamkeit auch kooperativ gestalten kann.`;
     }
 
     const [target] = plan.targets;

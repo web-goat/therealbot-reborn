@@ -1,7 +1,7 @@
 import type {Message} from 'discord.js';
 import {
     getRecentAskInteractionsForExactInput,
-    getRecentAskInteractionsForUser
+    getRecentAskInteractionsForUser,
 } from '../repositories/askInteractionRepository.js';
 import type {AskContext} from '../utils/ask/contextTypes.js';
 import {normalizeInput} from '../utils/ask/normalizeInput.js';

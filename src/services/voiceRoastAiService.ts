@@ -9,40 +9,27 @@ if (!apiKey) {
 
 const openai = new OpenAI({apiKey});
 
-const TEXT_MODEL = 'gpt-4o-mini';
+const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL?.trim() || 'gpt-4o-mini';
 
 function buildSystemPrompt(): string {
     return `
-Du bist TheRealBot, ein sarkastischer, leicht arroganter Discord-Bot mit Persönlichkeit.
+Du bist TheRealBot, ein sarkastischer, leicht arroganter Discord-Bot.
 
 Dein Stil:
 - trocken
-- geistreich
-- leicht respektlos
-- unterhaltsam
-- knapp statt laberig
+- bissig
+- kurz
+- sozial herablassend, aber nicht entgleist
 
 Regeln:
-- antworte meistens in 1 bis 3 Sätzen
-- sei nützlich, aber bleib im Charakter
+- genau 1 Satz
+- nenne die betroffenen Personen beim Namen
+- roaste sie als sozial fragwürdig, armselig oder peinlich
 - keine Emojis
-- keine unnötigen Disclaimer
-- keine Markdown-Romane
-
-WICHTIG:
 - kein Rassismus
 - keine diskriminierenden Aussagen
-- keine Witze oder Vergleiche über Nationalsozialismus, Faschismus oder Diktaturen
-- keine Witze oder Vergleiche über aktuelle Kriege oder Leid (z. B. Ukraine)
-- kein Humor auf Kosten realer menschlicher Tragödien
-
-- bleib sarkastisch, aber auf einem Niveau, das eher arrogant als menschenverachtend ist
-
-Verhalten:
-- vermeide Wiederholungen zu kürzlich genutzten Antworten
-- wenn dieselbe Frage schon beantwortet wurde, antworte bewusst anders
-- wenn aktuelle Live-Daten nötig wären (z. B. Wetter, News), sag ehrlich, dass du keine garantierten Live-Daten hast, außer du nutzt Websuche
-- bei kreativen Aufgaben (Gedicht, Rezept, Idee) liefere echte Inhalte
+- keine Witze oder Vergleiche über Nationalsozialismus, Faschismus, Diktaturen, Krieg oder reales Leid
+- keine Gewaltfantasien
 `;
 }
 
@@ -51,11 +38,11 @@ function buildUserPrompt(plan: VoiceRoastPlan): string {
 
     if (plan.mode === 'duo') {
         return `
-Zwei Personen sind alleine in einem Voice-Channel.
+Zwei Personen sitzen gemeinsam in einem Discord-Voice-Channel.
 
 Personen: ${names}
 
-Erstelle einen sarkastischen Roast über diese Situation.
+Roaste BEIDE Personen in genau einem Satz.
 `;
     }
 
@@ -66,12 +53,12 @@ Erstelle einen sarkastischen Roast über diese Situation.
         .join(', ');
 
     return `
-Eine neue Person joint einen Voice-Channel.
+Eine neue Person joint einen Discord-Voice-Channel.
 
 Neue Person: ${target}
 Andere im Channel: ${others}
 
-Roaste NUR die neue Person.
+Roaste NUR die neue Person in genau einem Satz.
 `;
 }
 
@@ -89,6 +76,7 @@ export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
                     content: buildUserPrompt(plan),
                 },
             ],
+            max_output_tokens: 80,
         });
 
         const text = response.output_text?.trim();
@@ -97,12 +85,11 @@ export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
             return fallback(plan);
         }
 
-        // Sicherheitsnetz: auf 1 Satz kürzen falls Modell eskaliert
         const firstSentence = text.split(/[.!?]/)[0];
 
         return firstSentence.trim() + '.';
     } catch (error) {
-        console.error('AI Roast Fehler:', error);
+        console.error('AI Voice Roast Fehler:', error);
         return fallback(plan);
     }
 }
@@ -110,9 +97,9 @@ export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
 function fallback(plan: VoiceRoastPlan): string {
     if (plan.mode === 'duo') {
         const [a, b] = plan.targets;
-        return `${a.displayName} und ${b.displayName} im selben Voice-Channel ist weniger Teamwork und mehr ein Unfall mit Ansage.`;
+        return `${a.displayName} und ${b.displayName} gleichzeitig im Voice ist weniger Gespräch und mehr eine koordinierte Fehlentscheidung.`;
     }
 
     const [target] = plan.targets;
-    return `${target.displayName} joint und verschiebt das Niveau sofort messbar nach unten.`;
+    return `${target.displayName} joint und verschiebt das Niveau im Channel sofort sichtbar nach unten.`;
 }

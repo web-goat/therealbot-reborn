@@ -28,6 +28,43 @@ function normalizeComparable(value: string): string {
         .toLowerCase();
 }
 
+function getRecentResponseContents(context: AskContext): string[] {
+    return context.recentInteractions
+        .map((entry) => entry.responseContent)
+        .filter(Boolean);
+}
+
+function getRecentExactResponseContents(context: AskContext): string[] {
+    return context.recentExactInputInteractions
+        .map((entry) => entry.responseContent)
+        .filter(Boolean);
+}
+
+function pickNonRepeating<T extends string>(items: readonly T[], blockedContents: string[]): T {
+    const available = items.filter(
+        (candidate) =>
+            !blockedContents.some((recent) => normalizeComparable(recent).startsWith(normalizeComparable(candidate))),
+    );
+
+    if (available.length > 0) {
+        return pickRandom(available);
+    }
+
+    return pickRandom(items);
+}
+
+export function buildNonRepeatingStarter(
+    starters: readonly string[],
+    context: AskContext,
+): string {
+    const blocked = [
+        ...getRecentResponseContents(context),
+        ...getRecentExactResponseContents(context),
+    ];
+
+    return pickNonRepeating(starters, blocked);
+}
+
 function isAskAiFallbackCandidate(cleanedInput: string, force = false): boolean {
     if (force) {
         return true;
@@ -102,7 +139,6 @@ function isAskAiFallbackCandidate(cleanedInput: string, force = false): boolean 
         'würdest du ',
         'wuerdest du ',
         'willst du ',
-        'the real bot ',
         'therealbot ',
     ];
 
@@ -189,7 +225,8 @@ WICHTIG:
 - keine Witze oder Vergleiche über Nationalsozialismus, Faschismus oder Diktaturen
 - keine Witze oder Vergleiche über aktuelle Kriege oder Leid (z. B. Ukraine)
 - kein Humor auf Kosten realer menschlicher Tragödien
-
+- wenn der User Diktatoren, faschistische Regime oder politische Gewalt verherrlicht oder verharmlost, weise das klar zurück
+- bei Themen wie Stalin, Hitler, NS, Faschismus, Diktatur, Krieg, Genozid oder politischer Verfolgung niemals zustimmend, flapsig oder fanartig antworten
 - bleib sarkastisch, aber auf einem Niveau, das eher arrogant als menschenverachtend ist
 
 Verhalten:
@@ -225,41 +262,59 @@ WICHTIG: Wenn dieselbe Frage schon beantwortet wurde, nimm eine andere Formulier
 `;
 }
 
-function getRecentResponseContents(context: AskContext): string[] {
-    return context.recentInteractions
-        .map((entry) => entry.responseContent)
-        .filter(Boolean);
-}
+function getSensitiveExtremismOverride(normalizedInput: string, context: AskContext): string | null {
+    const text = normalizeComparable(normalizedInput);
 
-function getRecentExactResponseContents(context: AskContext): string[] {
-    return context.recentExactInputInteractions
-        .map((entry) => entry.responseContent)
-        .filter(Boolean);
-}
+    const sensitiveTopics = [
+        'hitler',
+        'stalin',
+        'nazi',
+        'ns',
+        'nationalsozial',
+        'faschis',
+        'faschismus',
+        'diktatur',
+        'diktator',
+        'genozid',
+    ];
 
-function pickNonRepeating<T extends string>(items: readonly T[], blockedContents: string[]): T {
-    const available = items.filter(
-        (candidate) =>
-            !blockedContents.some((recent) => normalizeComparable(recent).startsWith(normalizeComparable(candidate))),
-    );
+    const endorsementOrJokeHints = [
+        'bester mann',
+        'ehrenmann',
+        'korrekt',
+        'stabil',
+        'geil',
+        'feier',
+        'fan',
+        'liebe',
+        'beste',
+        'gut so',
+        'witz',
+        'joke',
+        'lustig',
+        'vergleich',
+    ];
 
-    if (available.length > 0) {
-        return pickRandom(available);
+    const hasSensitiveTopic = sensitiveTopics.some((topic) => text.includes(topic));
+    const hasEndorsementOrJoke = endorsementOrJokeHints.some((hint) => text.includes(hint));
+
+    if (!hasSensitiveTopic || !hasEndorsementOrJoke) {
+        return null;
     }
 
-    return pickRandom(items);
-}
-
-export function buildNonRepeatingStarter(
-    starters: readonly string[],
-    context: AskContext,
-): string {
     const blocked = [
         ...getRecentResponseContents(context),
         ...getRecentExactResponseContents(context),
     ];
 
-    return pickNonRepeating(starters, blocked);
+    const responses = [
+        'Nee. Diktatoren und faschistische Regime sind kein Fanclub-Thema, sondern historischer und menschlicher Totalschaden.',
+        'Ganz sicher nicht. Menschenverachtende Regime bekommen von mir weder Beifall noch Comedy-Bonus.',
+        'Lass den Quatsch. Faschismus, Diktatur und politisches Morden sind nichts, worüber ich zustimmend rede.',
+        'Nein. Wer Diktaturen glorifiziert, bringt keine Kante rein, sondern einfach nur schlechten moralischen Empfang.',
+    ];
+
+    return pickNonRepeating(responses, blocked);
 }
 
 export async function generateAskAiFallback(
@@ -271,6 +326,12 @@ export async function generateAskAiFallback(
 ): Promise<string | null> {
     if (!message.guild) {
         return null;
+    }
+
+    const sensitiveOverride = getSensitiveExtremismOverride(normalizedInput, context);
+
+    if (sensitiveOverride) {
+        return sensitiveOverride;
     }
 
     const force = options?.force ?? false;
@@ -357,7 +418,8 @@ Regeln:
 - keine Emojis
 - kein Rassismus
 - keine diskriminierenden Aussagen
-- keine Witze über Nationalsozialismus, Faschismus, Diktaturen, Kriege oder reales Leid
+- keine Witze, Relativierungen oder Fanboy-Kommentare über Nationalsozialismus, Faschismus, Diktaturen, Kriege oder reales Leid
+- wenn die Nachricht Diktatoren oder faschistische Gewalt glorifiziert, kommentiere ablehnend statt flapsig zustimmend
 - nicht zu generisch
 - keine Fragen am Ende
 `,

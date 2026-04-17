@@ -12,16 +12,11 @@ if (!apiKey) {
 const openai = new OpenAI({apiKey});
 
 const TTS_MODEL = process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts';
-
-const AVAILABLE_VOICES = ['alloy', 'verse', 'luna', 'nova'];
-
-function pickRandom<T>(items: readonly T[]): T {
-    return items[Math.floor(Math.random() * items.length)];
-}
+const TTS_VOICE = process.env.OPENAI_TTS_VOICE?.trim() || 'alloy';
 
 function normalizeForSpeech(text: string): string {
     return text
-        .replace(/[^\p{L}\p{N}\s.,!?]/gu, '')
+        .replace(/[^\p{L}\p{N}\s.,!?-]/gu, '')
         .replace(/\s+/g, ' ')
         .trim();
 }
@@ -43,18 +38,15 @@ export async function generateSpeechFile(text: string): Promise<string> {
     }
 
     console.log('[TTS] cleaned text:', cleanedText);
+    console.log('[TTS] voice:', TTS_VOICE);
+    console.log('[TTS] model:', TTS_MODEL);
 
     const outputPath = buildTempFilePath();
     await ensureTempDir(outputPath);
 
-    const voice = pickRandom(AVAILABLE_VOICES);
-
-    console.log('[TTS] voice:', voice);
-    console.log('[TTS] model:', TTS_MODEL);
-
     const response = await openai.audio.speech.create({
         model: TTS_MODEL,
-        voice,
+        voice: TTS_VOICE,
         input: cleanedText,
     });
 

@@ -18,7 +18,6 @@ export async function playSpeechTextInVoiceChannel(
     const audioFilePath = await generateSpeechFile(text);
     console.log('[VOICE] File generated:', audioFilePath);
 
-    // Datei prüfen
     try {
         const fileStats = await stat(audioFilePath);
         console.log('[VOICE] File size:', fileStats.size);

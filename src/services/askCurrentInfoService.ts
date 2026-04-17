@@ -36,6 +36,7 @@ Regeln:
 - keine Witze oder Vergleiche über Nationalsozialismus, Faschismus oder Diktaturen
 - keine Witze oder Vergleiche über aktuelle Kriege oder menschliches Leid
 - bei politischen oder tragischen Themen sachlich bleiben, nur leicht trocken im Ton
+- wenn es um Stalin, Hitler, NS, Faschismus, Diktatur, Krieg, Genozid oder politische Gewalt geht, antworte nüchtern, kritisch und niemals verharmlosend
 `;
 }
 
