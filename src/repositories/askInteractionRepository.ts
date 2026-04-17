@@ -72,3 +72,33 @@ export async function getRecentAskInteractionsForUser(
         createdAt: row.created_at,
     }));
 }
+
+export async function getRecentAskInteractionsForExactInput(
+    guildId: string,
+    userId: string,
+    normalizedInput: string,
+    limit = 5,
+): Promise<RecentAskInteraction[]> {
+    const result = await db.query<AskInteractionRow>(
+        `
+            SELECT normalized_input,
+                   response_type,
+                   response_content,
+                   created_at
+            FROM ask_interactions
+            WHERE guild_id = $1
+              AND user_id = $2
+              AND normalized_input = $3
+            ORDER BY created_at DESC
+                LIMIT $4
+        `,
+        [guildId, userId, normalizedInput, limit],
+    );
+
+    return result.rows.map((row) => ({
+        normalizedInput: row.normalized_input,
+        responseType: row.response_type,
+        responseContent: row.response_content ?? '',
+        createdAt: row.created_at,
+    }));
+}

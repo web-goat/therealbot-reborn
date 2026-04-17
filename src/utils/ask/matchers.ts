@@ -13,6 +13,14 @@ function reply(content: string): AskResult {
     return {type: 'reply', content};
 }
 
+function replyThenAi(content: string): AskResult {
+    return {type: 'reply_then_ai', content};
+}
+
+function replyThenAiCurrentInfo(content: string): AskResult {
+    return {type: 'reply_then_ai_current_info', content};
+}
+
 function forward(commandName: string): AskResult {
     return {type: 'forward', commandName};
 }
@@ -1103,15 +1111,6 @@ export function matchCategories(input: NormalizedAskInput): AskResult | null {
     }
 
     if (
-        text.includes('leben') ||
-        text.includes('sinn') ||
-        text.includes('existenz') ||
-        text.includes('welt')
-    ) {
-        return reply(pickRandom(askCategoryResponses.life));
-    }
-
-    if (
         text.includes('idiot') ||
         text.includes('dumm') ||
         text.includes('arschloch') ||
@@ -1131,16 +1130,142 @@ export function matchCategories(input: NormalizedAskInput): AskResult | null {
         return reply(pickRandom(askCategoryResponses.praise));
     }
 
+    const currentInfoHints = [
+        'wetter',
+        'weltpolitik',
+        'nachrichten',
+        'news',
+        'heute passiert',
+        'heute los',
+        'aktuell',
+        'gerade passiert',
+    ];
+
+    const isCurrentInfoQuestion =
+        currentInfoHints.some((hint) => text.includes(hint)) ||
+        (
+            text.includes('heute') &&
+            (
+                text.includes('welt') ||
+                text.includes('politik') ||
+                text.includes('passiert') ||
+                text.includes('los')
+            )
+        );
+
+    if (isCurrentInfoQuestion) {
+        const starters = [
+            'Aha, du willst also Gegenwartswissen statt nur Attitüde.',
+            'Aktuelle Infos also. Du erwartest heute wirklich Service von mir.',
+            'Na toll. Jetzt soll ich auch noch Realität in dieses Gespräch bringen.',
+            'Du willst also Dinge wissen, die sich seit gestern geändert haben. Anstrengend präzise.',
+        ];
+
+        return replyThenAiCurrentInfo(pickRandom(starters));
+    }
+
+    const philosophicalLifeTriggers = [
+        'sinn des lebens',
+        'sinn vom leben',
+        'was ist der sinn',
+        'was ist sinn',
+        'bedeutung des lebens',
+        'existenz',
+        'wozu leben wir',
+        'wozu existieren wir',
+    ];
+
+    if (philosophicalLifeTriggers.some((trigger) => text.includes(trigger))) {
+        return reply(pickRandom(askCategoryResponses.life));
+    }
+
     if (text.startsWith('warum') || text.startsWith('wieso') || text.startsWith('weshalb')) {
-        return reply(pickRandom(askCategoryResponses.why));
+        const starters = [
+            'Warum-Fragen. Mein persönlicher Lieblingsweg zu unnötiger Verantwortung.',
+            'Aha, Ursachenforschung. Du willst also wirklich, dass ich nachdenke.',
+            'Warum, wieso, weshalb… du reichst Arbeit mit Satzzeichen ein.',
+            'Starke Frage. Nervig offen, aber diesmal lass ich Gnade walten.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
     }
 
     if (text.startsWith('wie')) {
-        return reply(pickRandom(askCategoryResponses.how));
+        const starters = [
+            'Wie-Fragen riechen immer sofort nach Aufwand.',
+            'Aha, du willst also eine richtige Erklärung und nicht nur meinen Spott.',
+            'Komplizierte Frage. Ich wollte gerade schon abwinken.',
+            'Das klingt nach einer dieser Fragen, bei denen ich mich leider kurz zusammenreißen muss.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
     }
 
     if (text.startsWith('wann')) {
-        return reply(pickRandom(askCategoryResponses.when));
+        const starters = [
+            'Zeitfragen. Mein natürlicher Feind.',
+            'Wann-Fragen sind auch nur Ungeduld mit Grammatik.',
+            'Du willst also Timing. Kühn von dir.',
+            'Aha, zeitkritisch. Ich tu mal so, als würde mich das nicht stören.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
+    }
+
+    if (text.startsWith('was')) {
+        const starters = [
+            'Was-Fragen. Schön offen, schön unverschämt, schön nach Arbeit.',
+            'Aha, du willst Inhalte. Ganz wildes Konzept.',
+            'Das ist leider eine echte Frage und nicht nur sprachlicher Müll.',
+            'Na toll. Du willst tatsächlich eine brauchbare Antwort.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
+    }
+
+    if (text.startsWith('wer')) {
+        const starters = [
+            'Personenfragen also. Jetzt wird’s direkt unnötig konkret.',
+            'Wer-Fragen. Fast so, als erwartest du hier echte Einordnung.',
+            'Aha, Identitätsklärung. Das wird kurz professionell und macht mich wütend.',
+            'Wer genau? Na gut, ich denk kurz drüber nach.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
+    }
+
+    if (text.startsWith('wo')) {
+        const starters = [
+            'Ortsfragen. Sehr ambitioniert für jemanden, der mich fragt.',
+            'Wo-Fragen sind nur Schatzsuche ohne Charme.',
+            'Du willst also Lokalisierung statt Lebenshilfe. Verrückt.',
+            'Aha, ein Ortsproblem. Ich war kurz versucht, dich einfach nach draußen zu schicken.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
+    }
+
+    const creativeAiHints = [
+        'gedicht',
+        'rezept',
+        'text',
+        'idee',
+        'erklär',
+        'erklaer',
+        'geschichte',
+        'zusammenfassung',
+        'zusammenfassen',
+    ];
+
+    if (creativeAiHints.some((hint) => text.includes(hint))) {
+        const starters = [
+            'Das klingt leider nach echter Denkarbeit.',
+            'Aha, du willst also Inhalt und nicht nur meine Meinung. Mutig.',
+            'Na schön. Ich kann mich wohl kurz nützlich machen.',
+            'Widerlich konkret. Aber gut, ich helfe ausnahmsweise.',
+        ];
+
+        return replyThenAi(pickRandom(starters));
     }
 
     return null;

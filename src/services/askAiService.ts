@@ -27,7 +27,11 @@ function normalizeComparable(value: string): string {
         .toLowerCase();
 }
 
-function isAskAiFallbackCandidate(cleanedInput: string): boolean {
+function isAskAiFallbackCandidate(cleanedInput: string, force = false): boolean {
+    if (force) {
+        return true;
+    }
+
     const text = normalizeComparable(cleanedInput);
 
     if (!text) {
@@ -52,6 +56,7 @@ function isAskAiFallbackCandidate(cleanedInput: string): boolean {
         'wild',
         'krank',
         'eö',
+        'bot',
     ]);
 
     if (tinyNoise.has(text)) {
@@ -72,7 +77,7 @@ function isAskAiFallbackCandidate(cleanedInput: string): boolean {
         'schreib ',
         'mach ',
         'erklär ',
-        'erklär ',
+        'erklaer ',
         'sag ',
         'nenn ',
         'zeige ',
@@ -108,6 +113,19 @@ function buildRecentResponseBlock(context: AskContext): string {
     return recentReplyContents.map((content, index) => `${index + 1}. ${content}`).join('\n');
 }
 
+function buildExactInputResponseBlock(context: AskContext): string {
+    const recentExact = context.recentExactInputInteractions
+        .map((entry) => entry.responseContent)
+        .filter(Boolean)
+        .slice(0, 5);
+
+    if (recentExact.length === 0) {
+        return 'Keine früheren Antworten auf genau diese Frage vorhanden.';
+    }
+
+    return recentExact.map((content, index) => `${index + 1}. ${content}`).join('\n');
+}
+
 function buildSystemPrompt(): string {
     return `
 Du bist TheRealBot, ein sarkastischer, leicht arroganter Discord-Bot mit Persönlichkeit.
@@ -125,10 +143,21 @@ Regeln:
 - keine Emojis
 - keine unnötigen Disclaimer
 - keine Markdown-Romane
+
+WICHTIG:
+- kein Rassismus
+- keine diskriminierenden Aussagen
+- keine Witze oder Vergleiche über Nationalsozialismus, Faschismus oder Diktaturen
+- keine Witze oder Vergleiche über aktuelle Kriege oder Leid (z. B. Ukraine)
+- kein Humor auf Kosten realer menschlicher Tragödien
+
+- bleib sarkastisch, aber auf einem Niveau, das eher arrogant als menschenverachtend ist
+
+Verhalten:
 - vermeide Wiederholungen zu kürzlich genutzten Antworten
-- wenn aktuelle Live-Daten nötig wären (z. B. Wetter, News, Uhrzeit an einem Ort), sag ehrlich, dass du gerade keine Live-Daten abrufen kannst, statt etwas zu erfinden
-- wenn der User nach etwas Kreativem fragt (z. B. Gedicht, Rezept, Idee, Text), hilf tatsächlich weiter statt mit Ja/Nein-Müll zu antworten
-- keine Hassrede, keine entgleiste Beleidigung
+- wenn dieselbe Frage schon beantwortet wurde, antworte bewusst anders
+- wenn aktuelle Live-Daten nötig wären (z. B. Wetter, News), sag ehrlich, dass du keine garantierten Live-Daten hast, außer du nutzt Websuche
+- bei kreativen Aufgaben (Gedicht, Rezept, Idee) liefere echte Inhalte
 `;
 }
 
@@ -146,10 +175,14 @@ ${context.lastNormalizedInput ?? 'Keine'}
 Letzte bekannte Bot-Antwort:
 ${context.lastResponseContent ?? 'Keine'}
 
-Kürzlich verwendete Antworten, die du bitte nicht einfach wiederkäuen sollst:
+Kürzlich verwendete Antworten allgemein:
 ${buildRecentResponseBlock(context)}
 
+Frühere Antworten auf exakt dieselbe Frage:
+${buildExactInputResponseBlock(context)}
+
 Antworte jetzt passend als TheRealBot auf die neue Eingabe.
+WICHTIG: Wenn dieselbe Frage schon beantwortet wurde, nimm eine andere Formulierung, einen anderen Gag oder einen anderen Blickwinkel.
 `;
 }
 
@@ -159,10 +192,16 @@ function getRecentResponseContents(context: AskContext): string[] {
         .filter(Boolean);
 }
 
-function pickNonRepeating<T extends string>(items: readonly T[], recentContents: string[]): T {
+function getRecentExactResponseContents(context: AskContext): string[] {
+    return context.recentExactInputInteractions
+        .map((entry) => entry.responseContent)
+        .filter(Boolean);
+}
+
+function pickNonRepeating<T extends string>(items: readonly T[], blockedContents: string[]): T {
     const available = items.filter(
         (candidate) =>
-            !recentContents.some((recent) => normalizeComparable(recent).startsWith(normalizeComparable(candidate))),
+            !blockedContents.some((recent) => normalizeComparable(recent).startsWith(normalizeComparable(candidate))),
     );
 
     if (available.length > 0) {
@@ -177,16 +216,21 @@ export async function generateAskAiFallback(
     rawInput: string,
     normalizedInput: string,
     context: AskContext,
+    options?: { force?: boolean },
 ): Promise<string | null> {
     if (!message.guild) {
         return null;
     }
 
-    if (!isAskAiFallbackCandidate(normalizedInput)) {
+    const force = options?.force ?? false;
+
+    if (!isAskAiFallbackCandidate(normalizedInput, force)) {
         return null;
     }
 
     try {
+        console.log('[ASK-AI] model=%s force=%s input=%s', TEXT_MODEL, force, normalizedInput);
+
         const response = await openai.responses.create({
             model: TEXT_MODEL,
             input: [
@@ -199,12 +243,19 @@ export async function generateAskAiFallback(
                     content: buildUserPrompt(message, rawInput, normalizedInput, context),
                 },
             ],
-            max_output_tokens: 180,
+            max_output_tokens: 220,
         });
 
         const text = response.output_text?.trim();
 
         if (!text) {
+            return null;
+        }
+
+        const normalizedText = normalizeComparable(text);
+        const blocked = getRecentExactResponseContents(context).map(normalizeComparable);
+
+        if (blocked.includes(normalizedText)) {
             return null;
         }
 
@@ -222,18 +273,24 @@ export function buildChaosFallback(context: AskContext): string | null {
         return null;
     }
 
-    const recentContents = getRecentResponseContents(context);
+    const blocked = [
+        ...getRecentResponseContents(context),
+        ...getRecentExactResponseContents(context),
+    ];
 
-    return pickNonRepeating(askCategoryResponses.chaos, recentContents);
+    return pickNonRepeating(askCategoryResponses.chaos, blocked);
 }
 
 export function buildNonRepeatingRandomFallback(
     message: Message,
     context: AskContext,
 ): string {
-    const recentContents = getRecentResponseContents(context);
+    const blocked = [
+        ...getRecentResponseContents(context),
+        ...getRecentExactResponseContents(context),
+    ];
 
-    const chosen = pickNonRepeating(yesNoResponses, recentContents);
+    const chosen = pickNonRepeating(yesNoResponses, blocked);
 
     return `${chosen} ${message.member}`.trim();
 }

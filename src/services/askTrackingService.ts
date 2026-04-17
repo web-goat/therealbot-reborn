@@ -14,11 +14,16 @@ export async function trackAskInteraction(
     }
 
     const responseType = result?.type ?? 'reply';
-    const responseContent = result
-        ? result.type === 'reply'
-            ? result.content
-            : result.commandName
-        : (fallbackContent ?? '');
+
+    let responseContent = fallbackContent ?? '';
+
+    if (result) {
+        if (result.type === 'forward') {
+            responseContent = result.commandName;
+        } else {
+            responseContent = result.content;
+        }
+    }
 
     await logAskInteraction({
         guildId: message.guild.id,

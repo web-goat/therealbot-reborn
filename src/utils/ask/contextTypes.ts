@@ -11,6 +11,7 @@ export interface AskContext {
     hasMentions: boolean;
     isReply: boolean;
     recentInteractions: RecentAskInteraction[];
+    recentExactInputInteractions: RecentAskInteraction[];
     lastNormalizedInput: string | null;
     lastResponseType: string | null;
     lastResponseContent: string | null;

@@ -5,6 +5,11 @@ import {commandMap} from '../utils/commandRegistry.js';
 import {trackAskInteraction} from '../services/askTrackingService.js';
 import {buildAskContext} from '../services/askContextService.js';
 import {buildChaosFallback, buildNonRepeatingRandomFallback, generateAskAiFallback,} from '../services/askAiService.js';
+import {generateCurrentInfoReply} from '../services/askCurrentInfoService.js';
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export const askCommand: Command = {
     name: 'ask',
@@ -20,6 +25,67 @@ export const askCommand: Command = {
 
             if (result.type === 'reply') {
                 await message.reply(result.content);
+                return;
+            }
+
+            if (result.type === 'reply_then_ai') {
+                await message.reply(result.content);
+
+                await sleep(900);
+
+                const aiReply = await generateAskAiFallback(
+                    message,
+                    normalized.raw,
+                    normalized.cleaned,
+                    context,
+                    {force: true},
+                );
+
+                if (aiReply) {
+                    const finalReply = `Na gut. Ich hab's mir anders überlegt. ${aiReply}`;
+                    const aiResult = {type: 'reply' as const, content: finalReply};
+                    await trackAskInteraction(message, normalized.raw, normalized.cleaned, aiResult);
+                    await message.reply(finalReply);
+                }
+
+                return;
+            }
+
+            if (result.type === 'reply_then_ai_current_info') {
+                await message.reply(result.content);
+
+                await sleep(1100);
+
+                const currentInfoReply = await generateCurrentInfoReply(
+                    message,
+                    normalized.raw,
+                    normalized.cleaned,
+                    context,
+                );
+
+                if (currentInfoReply) {
+                    const finalReply = `Na gut. Weil ich eh alles weiß: ${currentInfoReply}`;
+                    const currentInfoResult = {type: 'reply' as const, content: finalReply};
+                    await trackAskInteraction(message, normalized.raw, normalized.cleaned, currentInfoResult);
+                    await message.reply(finalReply);
+                    return;
+                }
+
+                const aiReply = await generateAskAiFallback(
+                    message,
+                    normalized.raw,
+                    normalized.cleaned,
+                    context,
+                    {force: true},
+                );
+
+                if (aiReply) {
+                    const finalReply = `Na gut. Ich hab's mir anders überlegt. ${aiReply}`;
+                    const aiResult = {type: 'reply' as const, content: finalReply};
+                    await trackAskInteraction(message, normalized.raw, normalized.cleaned, aiResult);
+                    await message.reply(finalReply);
+                }
+
                 return;
             }
 
