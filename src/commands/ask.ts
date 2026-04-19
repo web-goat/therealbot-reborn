@@ -8,12 +8,29 @@ import {
     buildChaosFallback,
     buildNonRepeatingRandomFallback,
     buildNonRepeatingStarter,
+    buildRepeatWarning,
     generateAskAiFallback,
 } from '../services/askAiService.js';
 import {generateCurrentInfoReply} from '../services/askCurrentInfoService.js';
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLikelySpamRepeat(
+    normalizedInput: string,
+    lastNormalizedInput: string | null,
+    exactCount: number,
+): boolean {
+    if (!normalizedInput || !lastNormalizedInput) {
+        return false;
+    }
+
+    if (normalizedInput !== lastNormalizedInput) {
+        return false;
+    }
+
+    return exactCount >= 2;
 }
 
 export const askCommand: Command = {
@@ -23,6 +40,21 @@ export const askCommand: Command = {
     async execute(message, args) {
         const normalized = normalizeInput(args);
         const context = await buildAskContext(message);
+
+        if (
+            isLikelySpamRepeat(
+                normalized.cleaned,
+                context.lastNormalizedInput,
+                context.recentExactInputInteractions.length,
+            )
+        ) {
+            const repeatReply = buildRepeatWarning(context);
+            const repeatResult = {type: 'reply' as const, content: repeatReply};
+            await trackAskInteraction(message, normalized.raw, normalized.cleaned, repeatResult);
+            await message.reply(repeatReply);
+            return;
+        }
+
         const result = getAskResponse(message, args, context);
 
         if (result) {

@@ -18,17 +18,13 @@ function normalizeOutput(text: string): string {
 }
 
 function looksUsableRoast(text: string): boolean {
-    const normalized = normalizeOutput(text);
+    const normalized = normalizeOutput(text).toLowerCase();
 
     if (!normalized) {
         return false;
     }
 
-    if (normalized.length < 20) {
-        return false;
-    }
-
-    if (normalized.length > 220) {
+    if (normalized.length < 20 || normalized.length > 220) {
         return false;
     }
 
@@ -39,9 +35,18 @@ function looksUsableRoast(text: string): boolean {
         'ukraine',
         'krieg',
         'genozid',
+        'leiche',
+        'blut',
+        'kadaver',
+        'friedhof',
+        'organ',
+        'vampir',
+        'horror',
+        'verstümmel',
+        'verstuemmel',
     ];
 
-    if (bannedWeirdness.some((word) => normalized.toLowerCase().includes(word))) {
+    if (bannedWeirdness.some((word) => normalized.includes(word))) {
         return false;
     }
 
@@ -50,13 +55,14 @@ function looksUsableRoast(text: string): boolean {
 
 function buildSystemPrompt(): string {
     return `
-Du bist TheRealBot, ein sarkastischer Discord-Bot.
+Du bist TheRealBot, ein witziger Discord-Bot.
 
 Dein Stil:
 - trocken
 - verständlich
 - menschlich
 - kurze, direkte Sätze
+- eher witzig als hart
 - wie ein echter Seitenhieb im Gespräch, nicht wie ein Aufsatz
 
 WICHTIG:
@@ -65,10 +71,11 @@ WICHTIG:
 - klinge wie jemand, der spontan einen guten Roast sagt
 - alltagssprachlich, klar, verständlich
 - KEINE komplizierten oder verkopften Formulierungen
-- KEINE bedeutungsschwangeren Kunstsätze
 - KEINE unverständlichen Metaphern
-- KEIN Boomer-Comedian-Vibe
-- KEIN Cringe-Edgelord-Humor
+- KEIN Edgelord-Humor
+- KEIN Gore
+- KEINE makabren Bilder
+- KEINE Witze über Leichen, Blut, Tote, Verstümmelung oder Horror-Szenarien
 
 Sicherheitsregeln:
 - kein Rassismus
@@ -80,7 +87,7 @@ Sicherheitsregeln:
 Gute Beispiele für den Stil:
 - "Vincent, Kleaver. Ihr zwei im selben Voice. Das klingt schon vor dem ersten Wort nach einer schlechten Idee."
 - "Vincent und Kleaver zusammen im Call. Einer zu viel wäre schlimm, zwei sind natürlich konsequent."
-- "Kleaver joint rein und sofort klingt der ganze Channel wie ein ungeplanter Fehler."
+- "Kleaver joint rein und sofort klingt der ganze Channel nach einer schlechteren Entscheidung."
 - "Vincent, stark. Du gehst freiwillig mit Kleaver in einen Voice. Ich respektiere den Kontrollverlust."
 - "Kleaver ist jetzt auch da. Genau das hat hier noch gefehlt: zusätzliche Unruhe."
 
@@ -88,6 +95,7 @@ Schlechte Beispiele:
 - "Vincent und Kleaver bilden ein Sammelbecken sozialer Dysfunktion."
 - "Dies ist eine koordinierte Fehlentscheidung mit auditiver Komponente."
 - "Ihr verkörpert gemeinsam ein semantisches Scheitern."
+- "Das klingt wie eine Leiche mit WLAN."
 `;
 }
 
@@ -105,6 +113,7 @@ ${allNames}
 Aufgabe:
 Roaste BEIDE Personen in 1 bis 2 kurzen, sehr gut verständlichen Sätzen.
 Es soll klingen wie ein spontaner, lustiger Seitenhieb von einem arroganten Bot.
+Mehr Witz als Härte.
 `;
     }
 
@@ -127,6 +136,7 @@ ${others || 'niemand extra genannt'}
 Aufgabe:
 Roaste NUR die neu gejointe Person in 1 bis 2 kurzen, sehr gut verständlichen Sätzen.
 Es soll klingen wie ein spontaner, lustiger Seitenhieb von einem arroganten Bot.
+Mehr Witz als Härte.
 `;
 }
 
