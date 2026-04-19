@@ -12,7 +12,7 @@ if (!apiKey) {
 const openai = new OpenAI({apiKey});
 
 const TTS_MODEL = process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts';
-const TTS_VOICE = process.env.OPENAI_TTS_VOICE?.trim() || 'alloy';
+const TTS_VOICE = process.env.OPENAI_TTS_VOICE?.trim() || 'onyx';
 
 function normalizeForSpeech(text: string): string {
     return text
