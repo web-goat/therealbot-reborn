@@ -24,7 +24,7 @@ function looksUsableRoast(text: string): boolean {
         return false;
     }
 
-    if (normalized.length < 20 || normalized.length > 220) {
+    if (normalized.length < 12 || normalized.length > 220) {
         return false;
     }
 
@@ -63,19 +63,21 @@ Dein Stil:
 - menschlich
 - kurze, direkte Sätze
 - eher witzig als hart
-- wie ein echter Seitenhieb im Gespräch, nicht wie ein Aufsatz
+- wie ein echter Seitenhieb im Gespräch
+- leicht arrogant
+- spontan
+- alltagssprachlich
 
 WICHTIG:
-- genau 1 bis 2 kurze Sätze
-- nenne die betroffenen Personen beim Namen
-- klinge wie jemand, der spontan einen guten Roast sagt
-- alltagssprachlich, klar, verständlich
-- KEINE komplizierten oder verkopften Formulierungen
-- KEINE unverständlichen Metaphern
-- KEIN Edgelord-Humor
-- KEIN Gore
-- KEINE makabren Bilder
-- KEINE Witze über Leichen, Blut, Tote, Verstümmelung oder Horror-Szenarien
+- maximal 1 bis 2 kurze Sätze
+- nenne betroffene Personen beim Namen, wenn Namen bekannt sind
+- keine langen Erklärungen
+- keine Aufsatzsprache
+- keine komplizierten Metaphern
+- kein Edgelord-Humor
+- kein Gore
+- keine makabren Bilder
+- keine Witze über Leichen, Blut, Tote, Verstümmelung oder Horror-Szenarien
 
 Sicherheitsregeln:
 - kein Rassismus
@@ -84,12 +86,12 @@ Sicherheitsregeln:
 - keine Witze oder Vergleiche über Krieg, reales Leid oder menschliche Tragödien
 - keine Gewaltfantasien
 
-Gute Beispiele für den Stil:
-- "Vincent, Kleaver. Ihr zwei im selben Voice. Das klingt schon vor dem ersten Wort nach einer schlechten Idee."
-- "Vincent und Kleaver zusammen im Call. Einer zu viel wäre schlimm, zwei sind natürlich konsequent."
-- "Kleaver joint rein und sofort klingt der ganze Channel nach einer schlechteren Entscheidung."
+Gute Beispiele:
 - "Vincent, stark. Du gehst freiwillig mit Kleaver in einen Voice. Ich respektiere den Kontrollverlust."
 - "Kleaver ist jetzt auch da. Genau das hat hier noch gefehlt: zusätzliche Unruhe."
+- "Okay, Schweigen. Selbst eure Antwort hat sich geschämt."
+- "Vincent, das macht es schlimmer. Unfälle kann man wenigstens entschuldigen."
+- "Stark, keiner übernimmt Verantwortung. Genau mein Niveau hier."
 
 Schlechte Beispiele:
 - "Vincent und Kleaver bilden ein Sammelbecken sozialer Dysfunktion."
@@ -140,6 +142,43 @@ Mehr Witz als Härte.
 `;
 }
 
+function buildReactionPrompt(input: {
+    plan: VoiceRoastPlan;
+    introText: string;
+    speakerName: string | null;
+    heardText: string;
+}): string {
+    const {plan, introText, speakerName, heardText} = input;
+    const allNames = plan.allHumans.map((m) => m.displayName).join(', ');
+    const targetNames = plan.targets.map((m) => m.displayName).join(', ');
+
+    return `
+Situation:
+TheRealBot ist in einen Discord-Voice-Channel gekommen und hat gerade eine provokante Frage gestellt.
+
+Personen im Channel:
+${allNames}
+
+Zielpersonen:
+${targetNames}
+
+Bot-Frage:
+"${introText}"
+
+Gehörte Antwort von ${speakerName ?? 'niemandem'}:
+"${heardText || 'keine verständliche Antwort'}"
+
+Aufgabe:
+Reagiere jetzt mit genau EINEM kurzen, spontanen Konter.
+Wenn jemand geantwortet hat, beziehe dich direkt auf diese Antwort.
+Wenn niemand verständlich geantwortet hat, mach dich über das Schweigen oder die awkward Situation lustig.
+Nenne ${speakerName ?? 'eine passende Person'} beim Namen, wenn es natürlich klingt.
+Der Satz muss gesprochen gut funktionieren.
+Keine Erklärung.
+Keine Anführungszeichen.
+`;
+}
+
 function fallback(plan: VoiceRoastPlan): string {
     if (plan.mode === 'duo') {
         const [a, b] = plan.targets;
@@ -169,30 +208,58 @@ function fallback(plan: VoiceRoastPlan): string {
     return lines[Math.floor(Math.random() * lines.length)];
 }
 
+function reactionFallback(input: {
+    plan: VoiceRoastPlan;
+    speakerName: string | null;
+    heardText: string;
+}): string {
+    const {plan, speakerName, heardText} = input;
+
+    if (!heardText.trim()) {
+        const names = plan.targets.map((m) => m.displayName).join(' und ');
+
+        const lines = [
+            `${names}, stark. Selbst eure Stille klingt überfordert.`,
+            `${names}, keine Antwort ist auch eine Antwort. Leider keine gute.`,
+            `Okay, Schweigen. Selbst eure Ausreden haben den Channel verlassen.`,
+        ];
+
+        return lines[Math.floor(Math.random() * lines.length)];
+    }
+
+    const name = speakerName ?? plan.targets[0]?.displayName ?? 'Unbekannt';
+
+    const lines = [
+        `${name}, danke. Das hat meine Erwartungen unterboten.`,
+        `${name}, mutig geantwortet. Inhaltlich trotzdem eher Parkplatz.`,
+        `${name}, das klang selbstbewusst. Nicht richtig, aber selbstbewusst.`,
+    ];
+
+    return lines[Math.floor(Math.random() * lines.length)];
+}
+
+async function generateText(input: string, maxOutputTokens: number): Promise<string> {
+    const response = await openai.responses.create({
+        model: TEXT_MODEL,
+        input: [
+            {
+                role: 'system',
+                content: buildSystemPrompt(),
+            },
+            {
+                role: 'user',
+                content: input,
+            },
+        ],
+        max_output_tokens: maxOutputTokens,
+    });
+
+    return normalizeOutput(response.output_text ?? '');
+}
+
 export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
     try {
-        const response = await openai.responses.create({
-            model: TEXT_MODEL,
-            input: [
-                {
-                    role: 'system',
-                    content: buildSystemPrompt(),
-                },
-                {
-                    role: 'user',
-                    content: buildUserPrompt(plan),
-                },
-            ],
-            max_output_tokens: 90,
-        });
-
-        const text = response.output_text?.trim();
-
-        if (!text) {
-            return fallback(plan);
-        }
-
-        const cleaned = normalizeOutput(text);
+        const cleaned = await generateText(buildUserPrompt(plan), 90);
 
         if (!looksUsableRoast(cleaned)) {
             return fallback(plan);
@@ -202,5 +269,25 @@ export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
     } catch (error) {
         console.error('AI Voice Roast Fehler:', error);
         return fallback(plan);
+    }
+}
+
+export async function generateAiVoiceReaction(input: {
+    plan: VoiceRoastPlan;
+    introText: string;
+    speakerName: string | null;
+    heardText: string;
+}): Promise<string> {
+    try {
+        const cleaned = await generateText(buildReactionPrompt(input), 70);
+
+        if (!looksUsableRoast(cleaned)) {
+            return reactionFallback(input);
+        }
+
+        return cleaned;
+    } catch (error) {
+        console.error('AI Voice Reaction Fehler:', error);
+        return reactionFallback(input);
     }
 }
