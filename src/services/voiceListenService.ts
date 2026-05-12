@@ -42,7 +42,7 @@ async function transcribeAudio(filePath: string): Promise<string> {
         model: STT_MODEL,
         file: createReadStream(filePath),
         language: 'de',
-        prompt: 'Discord Voice Chat, deutsch, kurze lockere Antworten.',
+        prompt: 'Discord Voice Chat, deutsch, kurze lockere Antworten, Namen, Gaming, Freunde.',
     });
 
     return result.text?.trim() ?? '';
@@ -54,7 +54,7 @@ export async function listenForVoiceAnswer(input: {
     botUserId: string;
     listenMs?: number;
 }): Promise<{ speaker: GuildMember | null; text: string }> {
-    const {connection, channel, botUserId, listenMs = 6_000} = input;
+    const {connection, channel, botUserId, listenMs = 7_000} = input;
     const receiver = connection.receiver;
 
     return new Promise((resolve) => {
@@ -76,9 +76,7 @@ export async function listenForVoiceAnswer(input: {
 
             const speaker = channel.members.get(userId);
 
-            if (!speaker || speaker.user.bot) {
-                return;
-            }
+            if (!speaker || speaker.user.bot) return;
 
             const opusStream = receiver.subscribe(userId, {
                 end: {
@@ -104,9 +102,7 @@ export async function listenForVoiceAnswer(input: {
 
                 const pcm = Buffer.concat(chunks);
 
-                if (pcm.length < 8_000) {
-                    return;
-                }
+                if (pcm.length < 8_000) return;
 
                 const filePath = join(process.cwd(), 'tmp', `listen-${randomUUID()}.wav`);
 

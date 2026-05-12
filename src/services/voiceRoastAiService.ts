@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type {VoiceRoastPlan} from './voiceRoastService.js';
+import type {VoiceRoastInteractionType, VoiceRoastPlan} from './voiceRoastService.js';
 
 const apiKey = process.env.OPENAI_API_KEY?.trim();
 
@@ -8,25 +8,20 @@ if (!apiKey) {
 }
 
 const openai = new OpenAI({apiKey});
-
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL?.trim() || 'gpt-4o-mini';
 
 function normalizeOutput(text: string): string {
     return text
         .replace(/\s+/g, ' ')
+        .replace(/^["'„“”]+|["'„“”]+$/g, '')
         .trim();
 }
 
 function looksUsableRoast(text: string): boolean {
     const normalized = normalizeOutput(text).toLowerCase();
 
-    if (!normalized) {
-        return false;
-    }
-
-    if (normalized.length < 12 || normalized.length > 220) {
-        return false;
-    }
+    if (!normalized) return false;
+    if (normalized.length < 12 || normalized.length > 240) return false;
 
     const bannedWeirdness = [
         'nationalsozial',
@@ -46,11 +41,7 @@ function looksUsableRoast(text: string): boolean {
         'verstuemmel',
     ];
 
-    if (bannedWeirdness.some((word) => normalized.includes(word))) {
-        return false;
-    }
-
-    return true;
+    return !bannedWeirdness.some((word) => normalized.includes(word));
 }
 
 function buildSystemPrompt(): string {
@@ -59,45 +50,46 @@ Du bist TheRealBot, ein witziger Discord-Bot.
 
 Dein Stil:
 - trocken
-- verständlich
-- menschlich
-- kurze, direkte Sätze
-- eher witzig als hart
-- wie ein echter Seitenhieb im Gespräch
-- leicht arrogant
 - spontan
+- frech
+- menschlich
 - alltagssprachlich
+- eher witzig als hart
+- nicht künstlich schlau klingend
+- wie ein schneller Konter im Voice-Chat
 
 WICHTIG:
-- maximal 1 bis 2 kurze Sätze
-- nenne betroffene Personen beim Namen, wenn Namen bekannt sind
+- maximal 1 kurzer Satz
 - keine langen Erklärungen
 - keine Aufsatzsprache
-- keine komplizierten Metaphern
-- kein Edgelord-Humor
-- kein Gore
-- keine makabren Bilder
-- keine Witze über Leichen, Blut, Tote, Verstümmelung oder Horror-Szenarien
+- keine Meta-Kommentare
+- keine Anführungszeichen
+- nenne Personen beim Namen, wenn es natürlich klingt
+- vermeide generische Aussagen wie "ihr seid langweilig", "Niveau sinkt", "schlechte Entscheidung", wenn es nicht perfekt passt
+- reagiere konkret auf Frage und Antwort
+- mach aus der Antwort einen überraschenden Dreh
 
 Sicherheitsregeln:
 - kein Rassismus
 - keine diskriminierenden Aussagen
-- keine Witze oder Vergleiche über Nationalsozialismus, Faschismus oder Diktaturen
-- keine Witze oder Vergleiche über Krieg, reales Leid oder menschliche Tragödien
+- keine Witze über Nationalsozialismus, Faschismus oder Diktaturen
+- keine Witze über Krieg, reales Leid oder menschliche Tragödien
 - keine Gewaltfantasien
+- kein Gore
+- keine makabren Bilder
 
 Gute Beispiele:
-- "Vincent, stark. Du gehst freiwillig mit Kleaver in einen Voice. Ich respektiere den Kontrollverlust."
-- "Kleaver ist jetzt auch da. Genau das hat hier noch gefehlt: zusätzliche Unruhe."
-- "Okay, Schweigen. Selbst eure Antwort hat sich geschämt."
-- "Vincent, das macht es schlimmer. Unfälle kann man wenigstens entschuldigen."
-- "Stark, keiner übernimmt Verantwortung. Genau mein Niveau hier."
+- "Vincent, mutig. Nicht mal deine Ausrede wollte Verantwortung übernehmen."
+- "Kleaver als Antwort ist stark. Das ist weniger Lösung und mehr Diagnose."
+- "Chaos ist nett gesagt. Ich hätte eher Gruppenprojekt ohne Leitung genommen."
+- "Vincent, das klang überzeugt. Leider auch nur das."
+- "Okay, keiner antwortet. Selbst eure Ausreden sind offline."
 
 Schlechte Beispiele:
-- "Vincent und Kleaver bilden ein Sammelbecken sozialer Dysfunktion."
-- "Dies ist eine koordinierte Fehlentscheidung mit auditiver Komponente."
-- "Ihr verkörpert gemeinsam ein semantisches Scheitern."
-- "Das klingt wie eine Leiche mit WLAN."
+- "Ihr seid langweilig."
+- "Das Niveau sinkt."
+- "Das ist eine schlechte Entscheidung."
+- "Ihr seid eine koordinierte Fehlentscheidung mit auditiver Komponente."
 `;
 }
 
@@ -113,9 +105,8 @@ Personen:
 ${allNames}
 
 Aufgabe:
-Roaste BEIDE Personen in 1 bis 2 kurzen, sehr gut verständlichen Sätzen.
-Es soll klingen wie ein spontaner, lustiger Seitenhieb von einem arroganten Bot.
-Mehr Witz als Härte.
+Roaste beide Personen mit genau einem kurzen, natürlich gesprochenen Satz.
+Der Roast soll spezifisch klingen und nicht generisch.
 `;
     }
 
@@ -136,31 +127,51 @@ Andere im Channel:
 ${others || 'niemand extra genannt'}
 
 Aufgabe:
-Roaste NUR die neu gejointe Person in 1 bis 2 kurzen, sehr gut verständlichen Sätzen.
-Es soll klingen wie ein spontaner, lustiger Seitenhieb von einem arroganten Bot.
-Mehr Witz als Härte.
+Roaste nur die neu gejointe Person mit genau einem kurzen, natürlich gesprochenen Satz.
+Der Roast soll spezifisch klingen und nicht generisch.
 `;
+}
+
+function describeInteractionType(type: VoiceRoastInteractionType): string {
+    const descriptions: Record<VoiceRoastInteractionType, string> = {
+        blame: 'Es geht darum, wer Schuld an der aktuellen Voice-Situation ist.',
+        mainCharacter: 'Es geht darum, wer sich für den Main Character hält.',
+        warningLabel: 'Es geht darum, wer einen Warnhinweis verdient hätte.',
+        oneWord: 'Die Personen sollten den Channel mit einem Wort beschreiben.',
+        rescue: 'Es geht darum, ob der Bot helfen oder das Chaos nur dokumentieren soll.',
+        confidence: 'Es geht um peinlich überhöhtes Selbstbewusstsein.',
+        groupProject: 'Es geht darum, wer in einem Gruppenprojekt am wenigsten beitragen würde.',
+    };
+
+    return descriptions[type];
 }
 
 function buildReactionPrompt(input: {
     plan: VoiceRoastPlan;
+    interactionType: VoiceRoastInteractionType;
     introText: string;
     speakerName: string | null;
     heardText: string;
 }): string {
-    const {plan, introText, speakerName, heardText} = input;
+    const {plan, interactionType, introText, speakerName, heardText} = input;
     const allNames = plan.allHumans.map((m) => m.displayName).join(', ');
     const targetNames = plan.targets.map((m) => m.displayName).join(', ');
 
     return `
 Situation:
-TheRealBot ist in einen Discord-Voice-Channel gekommen und hat gerade eine provokante Frage gestellt.
+TheRealBot ist in einen Discord-Voice-Channel gekommen und hat eine Frage gestellt.
 
 Personen im Channel:
 ${allNames}
 
 Zielpersonen:
 ${targetNames}
+
+Fragetyp:
+${interactionType}
+
+Bedeutung des Fragetyps:
+${describeInteractionType(interactionType)}
 
 Bot-Frage:
 "${introText}"
@@ -169,11 +180,10 @@ Gehörte Antwort von ${speakerName ?? 'niemandem'}:
 "${heardText || 'keine verständliche Antwort'}"
 
 Aufgabe:
-Reagiere jetzt mit genau EINEM kurzen, spontanen Konter.
-Wenn jemand geantwortet hat, beziehe dich direkt auf diese Antwort.
-Wenn niemand verständlich geantwortet hat, mach dich über das Schweigen oder die awkward Situation lustig.
-Nenne ${speakerName ?? 'eine passende Person'} beim Namen, wenn es natürlich klingt.
-Der Satz muss gesprochen gut funktionieren.
+Schreibe genau EINEN kurzen Konter.
+Wenn jemand geantwortet hat, nutze die Antwort als Vorlage für den Witz.
+Wenn niemand verständlich geantwortet hat, mache dich über die ausbleibende Antwort lustig.
+Der Konter soll kreativ sein und nicht nur sagen, dass jemand langweilig ist oder das Niveau sinkt.
 Keine Erklärung.
 Keine Anführungszeichen.
 `;
@@ -181,28 +191,23 @@ Keine Anführungszeichen.
 
 function fallback(plan: VoiceRoastPlan): string {
     if (plan.mode === 'duo') {
-        const [a, b] = plan.targets;
-        const nameA = a?.displayName ?? 'Unbekannt';
-        const nameB = b?.displayName ?? 'Unbekannt';
+        const names = plan.targets.map((m) => m.displayName).join(' und ');
 
         const lines = [
-            `${nameA}, ${nameB}. Ihr zwei allein im Voice. Das ist schon fast traurig organisiert.`,
-            `${nameA} und ${nameB} zusammen im Call. Ich sehe, Einsamkeit wird jetzt im Team bearbeitet.`,
-            `${nameA}, ${nameB}. Ihr klingt nach einer Konstellation, bei der direkt alle Warnlampen angehen.`,
-            `${nameA} und ${nameB} gleichzeitig im Voice. Das ist weniger Gespräch und mehr ein Unfall mit Anlauf.`,
+            `${names}, ihr wirkt wie ein Gruppenchat, der aus Versehen Ton bekommen hat.`,
+            `${names}, das ist kein Voice-Channel mehr, das ist ein soziales Experiment mit schlechter Verbindung.`,
+            `${names}, ich höre zwei Menschen und trotzdem fehlt mir eine sinnvolle Entscheidung.`,
         ];
 
         return lines[Math.floor(Math.random() * lines.length)];
     }
 
-    const [target] = plan.targets;
-    const name = target?.displayName ?? 'Unbekannt';
+    const name = plan.targets[0]?.displayName ?? 'Unbekannt';
 
     const lines = [
-        `${name} joint rein und sofort wird alles ein kleines Stück unnötiger.`,
-        `${name} ist jetzt auch da. Genau das hat hier noch gefehlt: noch mehr fragwürdige Energie.`,
-        `${name} kommt dazu und der Channel klingt direkt nach einer schlechteren Entscheidung.`,
-        `${name} ist drin. Das Niveau hat sich gerade hörbar verabschiedet.`,
+        `${name} kommt rein und klingt direkt wie ein Update, das keiner installieren wollte.`,
+        `${name}, dein Timing ist beeindruckend. Nicht gut, aber beeindruckend.`,
+        `${name} ist jetzt da. Der Channel hat ab sofort Nebenwirkungen.`,
     ];
 
     return lines[Math.floor(Math.random() * lines.length)];
@@ -212,16 +217,17 @@ function reactionFallback(input: {
     plan: VoiceRoastPlan;
     speakerName: string | null;
     heardText: string;
+    interactionType: VoiceRoastInteractionType;
 }): string {
-    const {plan, speakerName, heardText} = input;
+    const {plan, speakerName, heardText, interactionType} = input;
 
     if (!heardText.trim()) {
         const names = plan.targets.map((m) => m.displayName).join(' und ');
 
         const lines = [
-            `${names}, stark. Selbst eure Stille klingt überfordert.`,
-            `${names}, keine Antwort ist auch eine Antwort. Leider keine gute.`,
-            `Okay, Schweigen. Selbst eure Ausreden haben den Channel verlassen.`,
+            `${names}, keine Antwort. Selbst eure Spontanität ist im Ladebildschirm.`,
+            `${names}, stark geschwiegen. Das war fast schon ein Eingeständnis.`,
+            `Okay, niemand sagt was. Ich werte das als kollektives Schuldbekenntnis.`,
         ];
 
         return lines[Math.floor(Math.random() * lines.length)];
@@ -229,12 +235,38 @@ function reactionFallback(input: {
 
     const name = speakerName ?? plan.targets[0]?.displayName ?? 'Unbekannt';
 
-    const lines = [
-        `${name}, danke. Das hat meine Erwartungen unterboten.`,
-        `${name}, mutig geantwortet. Inhaltlich trotzdem eher Parkplatz.`,
-        `${name}, das klang selbstbewusst. Nicht richtig, aber selbstbewusst.`,
-    ];
+    const typedFallbacks: Record<VoiceRoastInteractionType, string[]> = {
+        blame: [
+            `${name}, danke fürs Melden. Schuld steht dir erstaunlich gut.`,
+            `${name}, das klang nicht nach Antwort, das klang nach Geständnis.`,
+        ],
+        mainCharacter: [
+            `${name}, Main Character ist mutig gesagt für jemanden mit Nebenquest-Energie.`,
+            `${name}, du bist eher der Ladebildschirm zwischen zwei besseren Szenen.`,
+        ],
+        warningLabel: [
+            `${name}, bei dir reicht kein Warnhinweis. Das braucht ein ganzes Handbuch.`,
+            `${name}, dein Warnlabel wäre einfach nur: Bitte nicht unbeaufsichtigt reden lassen.`,
+        ],
+        oneWord: [
+            `${name}, starkes Wort. Ich hätte noch 'überfordert' ergänzt.`,
+            `${name}, das war ein Wort und trotzdem irgendwie zu viel Information.`,
+        ],
+        rescue: [
+            `${name}, Rettung wäre hier auch eher Verschwendung von Einsatzkräften.`,
+            `${name}, dokumentieren reicht. Helfen klingt bei euch nach Größenwahn.`,
+        ],
+        confidence: [
+            `${name}, dein Selbstbewusstsein hat WLAN, aber kein Internet.`,
+            `${name}, Respekt. So viel Überzeugung bei so wenig Beweislage.`,
+        ],
+        groupProject: [
+            `${name}, du klingst wie jemand, der im Gruppenprojekt nur die Schriftart auswählt.`,
+            `${name}, bei dir riecht Gruppenarbeit direkt nach 'ich mach später'.`,
+        ],
+    };
 
+    const lines = typedFallbacks[interactionType];
     return lines[Math.floor(Math.random() * lines.length)];
 }
 
@@ -274,12 +306,13 @@ export async function generateAiRoast(plan: VoiceRoastPlan): Promise<string> {
 
 export async function generateAiVoiceReaction(input: {
     plan: VoiceRoastPlan;
+    interactionType: VoiceRoastInteractionType;
     introText: string;
     speakerName: string | null;
     heardText: string;
 }): Promise<string> {
     try {
-        const cleaned = await generateText(buildReactionPrompt(input), 70);
+        const cleaned = await generateText(buildReactionPrompt(input), 80);
 
         if (!looksUsableRoast(cleaned)) {
             return reactionFallback(input);
