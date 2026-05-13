@@ -14,7 +14,10 @@ if (!apiKey) {
 }
 
 const openai = new OpenAI({apiKey});
+
 const STT_MODEL = process.env.OPENAI_STT_MODEL?.trim() || 'gpt-4o-mini-transcribe';
+const MIN_PCM_BYTES = 8_000;
+const TRANSCRIBE_TIMEOUT_MS = 8_000;
 
 function createWavBuffer(pcm: Buffer, sampleRate = 48000, channels = 2): Buffer {
     const header = Buffer.alloc(44);
@@ -37,13 +40,32 @@ function createWavBuffer(pcm: Buffer, sampleRate = 48000, channels = 2): Buffer 
     return Buffer.concat([header, pcm]);
 }
 
+function destroyStream(stream: unknown): void {
+    if (
+        stream &&
+        typeof stream === 'object' &&
+        'destroy' in stream &&
+        typeof stream.destroy === 'function'
+    ) {
+        stream.destroy();
+    }
+}
+
 async function transcribeAudio(filePath: string): Promise<string> {
-    const result = await openai.audio.transcriptions.create({
+    const transcription = openai.audio.transcriptions.create({
         model: STT_MODEL,
         file: createReadStream(filePath),
         language: 'de',
-        prompt: 'Discord Voice Chat, deutsch, kurze lockere Antworten, Namen, Gaming, Freunde.',
+        prompt: 'Discord Voice Chat, deutsch, kurze lockere Antworten, Gaming, Freunde.',
     });
+
+    const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+            reject(new Error('Transcription timeout'));
+        }, TRANSCRIBE_TIMEOUT_MS);
+    });
+
+    const result = await Promise.race([transcription, timeout]);
 
     return result.text?.trim() ?? '';
 }
@@ -59,29 +81,62 @@ export async function listenForVoiceAnswer(input: {
 
     return new Promise((resolve) => {
         let resolved = false;
+        let activeOpusStream: NodeJS.ReadableStream | null = null;
+        let activeDecoder: prism.opus.Decoder | null = null;
 
-        const finish = (speaker: GuildMember | null, text: string) => {
-            if (resolved) return;
-
-            resolved = true;
-            clearTimeout(timeout);
+        const cleanup = () => {
             receiver.speaking.removeListener('start', onStart);
-            resolve({speaker, text});
+
+            destroyStream(activeOpusStream);
+            destroyStream(activeDecoder);
+
+            activeOpusStream = null;
+            activeDecoder = null;
         };
 
-        const timeout = setTimeout(() => finish(null, ''), listenMs);
+        const finish = (speaker: GuildMember | null, text: string) => {
+            if (resolved) {
+                return;
+            }
+
+            resolved = true;
+
+            clearTimeout(globalTimeout);
+
+            cleanup();
+
+            resolve({
+                speaker,
+                text,
+            });
+        };
+
+        const globalTimeout = setTimeout(() => {
+            console.log('[VOICE-LISTEN] Kein verwertbares Audio erkannt');
+            finish(null, '');
+        }, listenMs);
 
         const onStart = async (userId: string) => {
-            if (resolved || userId === botUserId) return;
+            if (resolved || activeOpusStream) {
+                return;
+            }
+
+            if (userId === botUserId) {
+                return;
+            }
 
             const speaker = channel.members.get(userId);
 
-            if (!speaker || speaker.user.bot) return;
+            if (!speaker || speaker.user.bot) {
+                return;
+            }
+
+            console.log('[VOICE-LISTEN] Speaker erkannt:', speaker.displayName);
 
             const opusStream = receiver.subscribe(userId, {
                 end: {
                     behavior: EndBehaviorType.AfterSilence,
-                    duration: 1_200,
+                    duration: 1_000,
                 },
             });
 
@@ -91,32 +146,76 @@ export async function listenForVoiceAnswer(input: {
                 frameSize: 960,
             });
 
+            activeOpusStream = opusStream;
+            activeDecoder = decoder;
+
             const chunks: Buffer[] = [];
+
+            const recordingTimeout = setTimeout(() => {
+                if (resolved) {
+                    return;
+                }
+
+                destroyStream(opusStream);
+
+                if ('end' in decoder && typeof decoder.end === 'function') {
+                    decoder.end();
+                }
+            }, Math.min(3_500, listenMs));
 
             decoder.on('data', (chunk: Buffer) => {
                 chunks.push(chunk);
             });
 
+            decoder.once('error', (error) => {
+                console.error('[VOICE-LISTEN] Decoder Fehler:', error);
+
+                clearTimeout(recordingTimeout);
+
+                finish(null, '');
+            });
+
             decoder.once('end', async () => {
-                if (resolved) return;
+                clearTimeout(recordingTimeout);
+
+                if (resolved) {
+                    return;
+                }
 
                 const pcm = Buffer.concat(chunks);
 
-                if (pcm.length < 8_000) return;
+                console.log('[VOICE-LISTEN] PCM bytes:', pcm.length);
 
-                const filePath = join(process.cwd(), 'tmp', `listen-${randomUUID()}.wav`);
+                if (pcm.length < MIN_PCM_BYTES) {
+                    finish(speaker, '');
+                    return;
+                }
+
+                const filePath = join(
+                    process.cwd(),
+                    'tmp',
+                    `listen-${randomUUID()}.wav`,
+                );
 
                 try {
-                    await mkdir(dirname(filePath), {recursive: true});
-                    await writeFile(filePath, createWavBuffer(pcm));
+                    await mkdir(dirname(filePath), {
+                        recursive: true,
+                    });
+
+                    await writeFile(
+                        filePath,
+                        createWavBuffer(pcm),
+                    );
 
                     const text = await transcribeAudio(filePath);
 
-                    if (text) {
-                        finish(speaker, text);
-                    }
+                    console.log('[VOICE-LISTEN] Transkript:', text || '[leer]');
+
+                    finish(speaker, text);
                 } catch (error) {
                     console.error('[VOICE-LISTEN] Fehler:', error);
+
+                    finish(speaker, '');
                 } finally {
                     await unlink(filePath).catch(() => {
                     });
