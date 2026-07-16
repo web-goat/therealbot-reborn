@@ -14,14 +14,26 @@ export async function trackAskInteraction(
     }
 
     const responseType = result?.type ?? 'reply';
-
     let responseContent = fallbackContent ?? '';
 
     if (result) {
-        if (result.type === 'forward') {
-            responseContent = result.commandName;
-        } else {
-            responseContent = result.content;
+        switch (result.type) {
+            case 'reply':
+                responseContent = result.content;
+                break;
+
+            case 'forward':
+                responseContent = result.commandName;
+                break;
+
+            case 'ai':
+                responseContent = fallbackContent ?? '';
+                break;
+
+            default: {
+                const exhaustiveCheck: never = result;
+                return exhaustiveCheck;
+            }
         }
     }
 

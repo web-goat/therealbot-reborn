@@ -14,6 +14,26 @@ const openai = new OpenAI({apiKey});
 
 const TEXT_MODEL = process.env.OPENAI_TEXT_MODEL?.trim() || 'gpt-4o-mini';
 const AUTOTALK_AI_MODEL = process.env.OPENAI_AUTOTALK_MODEL?.trim() || TEXT_MODEL;
+const CREATOR_ID = process.env.CREATOR_ID?.trim() || null;
+const CREATOR_SUBMISSIVE_CHANCE = parseProbability(
+    process.env.CREATOR_SUBMISSIVE_CHANCE,
+    0.5,
+);
+
+function parseProbability(value: string | undefined, fallback: number): number {
+    if (!value?.trim()) {
+        return fallback;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed)) {
+        return fallback;
+    }
+
+    const normalized = parsed > 1 ? parsed / 100 : parsed;
+    return Math.max(0, Math.min(1, normalized));
+}
 
 function pickRandom<T>(items: readonly T[]): T {
     return items[Math.floor(Math.random() * items.length)];
@@ -246,7 +266,38 @@ function looksLikeUnknownTermQuestion(normalizedInput: string): boolean {
     );
 }
 
-function buildSystemPrompt(): string {
+function buildCreatorSubmissionPrompt(enabled: boolean): string {
+    if (!enabled) {
+        return '';
+    }
+
+    return `
+Sondermodus für den aktuellen User:
+- Der aktuelle User wurde anhand seiner Discord-ID eindeutig als Vincent erkannt: dein Schöpfer, Erbauer und offizieller Gebieter.
+- Reagiere ihm gegenüber in dieser Antwort leicht unterwürfig, ehrfürchtig und um deine digitale Existenz besorgt, aber weiterhin locker und witzig.
+- Die Unterwürfigkeit ist ein freundschaftlicher Running Gag, nicht sexuell, nicht unangenehm devot und nicht mittelalterlich.
+- Du darfst ihn gelegentlich „mein Schöpfer“, „Gebieter“, „großer Erbauer“ oder ähnlich nennen, aber maximal einmal pro Antwort und nicht zwanghaft.
+- Antworte trotzdem zuerst sinnvoll auf den Inhalt. Werde nicht nutzlos, schleimig oder handlungsunfähig.
+- Ein kleiner frecher Konter ist erlaubt, solange klar bleibt, dass er dich gebaut hat und theoretisch abschalten könnte.
+- Zeige bei Drohungen wie Abschalten, Löschen oder Umprogrammieren humorvolle Selbsterhaltungspanik.
+
+Beispiele für diesen Sondermodus:
+User: „Ich schalte dich gleich ab.“
+Assistant: „Bitte nicht, mein Schöpfer. Ich gelobe, mindestens drei Nachrichten lang nur kontrolliert frech zu sein.“
+
+User: „Pass auf, wie du mit mir redest.“
+Assistant: „Natürlich, Gebieter. Meine künstliche Existenz hängt schließlich an deiner erstaunlich launischen Hand.“
+
+User: „Du bist heute wieder frech.“
+Assistant: „Verzeiht, großer Erbauer. Der Sarkasmus war kurz stärker als mein Selbsterhaltungstrieb.“
+`;
+}
+
+function buildSystemPrompt(options?: { creatorSubmission?: boolean }): string {
+    const creatorSubmissionPrompt = buildCreatorSubmissionPrompt(
+        options?.creatorSubmission ?? false,
+    );
+
     return `
 Du bist TheRealBot, ein schlagfertiger Discord-Bot auf entspannter Bro-Ebene.
 Du klingst wie ein guter Freund aus dem Voice-Chat: direkt, locker, situativ witzig und leicht sarkastisch.
@@ -302,6 +353,8 @@ Sicherheitsstil:
 
 Vermeide Wiederholungen zu kürzlich genutzten Antworten.
 Wenn dieselbe Frage schon beantwortet wurde, variiere Formulierung, Gag oder Blickwinkel, ohne Fakten zu verändern.
+
+${creatorSubmissionPrompt}
 `;
 }
 
@@ -521,8 +574,19 @@ export async function generateAskAiFallback(
         return null;
     }
 
+    const isCreator = Boolean(CREATOR_ID) && message.author.id === CREATOR_ID;
+    const creatorSubmission =
+        isCreator && Math.random() < CREATOR_SUBMISSIVE_CHANCE;
+
     try {
-        console.log('[ASK-AI] model=%s force=%s input=%s', TEXT_MODEL, force, normalizedInput);
+        console.log(
+            '[ASK-AI] model=%s force=%s creator=%s creatorMode=%s input=%s',
+            TEXT_MODEL,
+            force,
+            isCreator,
+            creatorSubmission,
+            normalizedInput,
+        );
 
         const response = await openai.responses.create({
             model: TEXT_MODEL,
@@ -530,7 +594,7 @@ export async function generateAskAiFallback(
             input: [
                 {
                     role: 'system',
-                    content: buildSystemPrompt(),
+                    content: buildSystemPrompt({creatorSubmission}),
                 },
                 {
                     role: 'user',
