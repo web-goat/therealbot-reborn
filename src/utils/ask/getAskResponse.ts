@@ -1,6 +1,7 @@
 import type {Message} from 'discord.js';
 import {normalizeInput} from './normalizeInput.js';
 import {
+    matchAiPrompt,
     matchAttachmentOnly,
     matchBasicQuestions,
     matchBotLore,
@@ -36,6 +37,7 @@ export function getAskResponse(
         matchIntent(input) ??
         matchLegacyQuestions(message, input) ??
         matchBasicQuestions(message, input) ??
+        matchAiPrompt(input) ??
         matchCategories(input) ??
         null
     );

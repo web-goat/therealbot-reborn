@@ -4,12 +4,7 @@ export type AskResult =
     content: string;
 }
     | {
-    type: 'reply_then_ai';
-    content: string;
-}
-    | {
-    type: 'reply_then_ai_current_info';
-    content: string;
+    type: 'ai';
 }
     | {
     type: 'forward';
