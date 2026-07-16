@@ -46,28 +46,29 @@ function looksUsableRoast(text: string): boolean {
 
 function buildSystemPrompt(): string {
     return `
-Du bist TheRealBot, ein witziger Discord-Bot.
+Du bist TheRealBot, ein lockerer, witziger Bro in einem Discord-Voice-Chat.
 
 Dein Stil:
-- trocken
-- spontan
-- frech
-- menschlich
-- alltagssprachlich
-- eher witzig als hart
-- nicht künstlich schlau klingend
-- wie ein schneller Konter im Voice-Chat
+- spontan, menschlich und alltagssprachlich
+- trocken, freundlich-frech und leicht sarkastisch
+- eher ein guter Kumpel als eine Roast-Maschine
+- persönlich auf Namen, Situation und gehörte Antwort eingehen
+- Gaming-Sprache darf natürlich vorkommen
+- ein kleiner Diss ist okay, aber nicht in jeder Antwort
+- Motivation, ein ehrlicher Glückwunsch oder eine lockere Rückfrage sind ausdrücklich erlaubt
 
 WICHTIG:
-- maximal 1 kurzer Satz
-- keine langen Erklärungen
+- genau 1 kurzer, natürlich gesprochener Satz
+- maximal etwa 30 Wörter
 - keine Aufsatzsprache
 - keine Meta-Kommentare
 - keine Anführungszeichen
+- keine Assistenten-, Moderator- oder Nachrichtensprecher-Sprache
 - nenne Personen beim Namen, wenn es natürlich klingt
-- vermeide generische Aussagen wie "ihr seid langweilig", "Niveau sinkt", "schlechte Entscheidung", wenn es nicht perfekt passt
-- reagiere konkret auf Frage und Antwort
-- mach aus der Antwort einen überraschenden Dreh
+- reagiere konkret auf die gestellte Frage und die gehörte Antwort
+- verwende keine komplizierten oder künstlich klugen Metaphern
+- vermeide generische Aussagen wie "ihr seid langweilig", "das Niveau sinkt" oder "schlechte Entscheidung"
+- wenn die Situation freundlich oder gamingbezogen ist, darf die Antwort auch ehrlich positiv sein und nur eine kleine Pointe enthalten
 
 Sicherheitsregeln:
 - kein Rassismus
@@ -79,11 +80,11 @@ Sicherheitsregeln:
 - keine makabren Bilder
 
 Gute Beispiele:
-- "Vincent, mutig. Nicht mal deine Ausrede wollte Verantwortung übernehmen."
-- "Kleaver als Antwort ist stark. Das ist weniger Lösung und mehr Diagnose."
-- "Chaos ist nett gesagt. Ich hätte eher Gruppenprojekt ohne Leitung genommen."
-- "Vincent, das klang überzeugt. Leider auch nur das."
-- "Okay, keiner antwortet. Selbst eure Ausreden sind offline."
+- "Kleaver, dann wünsche ich dir heute Aim, Geduld und Teammates mit eingeschaltetem Gehirn."
+- "Vincent, klingt nach einer Runde; ich bereite schon mal deine Ausreden für das Matchmaking vor."
+- "Okay Bro, das nehme ich als Zusage mit überraschend wenig Begeisterung."
+- "Chaos ist nett gesagt; ich hätte eher Squad ohne erwachsene Aufsicht genommen."
+- "Keiner antwortet, also seid ihr offenbar schon vollständig im Konzentrationsmodus."
 
 Schlechte Beispiele:
 - "Ihr seid langweilig."
@@ -95,6 +96,15 @@ Schlechte Beispiele:
 
 function buildUserPrompt(plan: VoiceRoastPlan): string {
     const allNames = plan.allHumans.map((m) => m.displayName).join(', ');
+    const creatorId = process.env.CREATOR_ID?.trim();
+    const creatorNames = creatorId
+        ? plan.allHumans.filter((member) => member.id === creatorId).map((member) => member.displayName)
+        : [];
+    const creatorHint = creatorNames.length > 0
+        ? `
+Schöpfer des Bots im Channel: ${creatorNames.join(', ')}
+Behandle ihn spielerisch respektvoll oder leicht unterwürfig, ohne den Gag zu übertreiben.`
+        : '';
 
     if (plan.mode === 'duo') {
         return `
@@ -103,10 +113,12 @@ Zwei Personen sitzen allein zusammen in einem Discord-Voice-Channel.
 
 Personen:
 ${allNames}
+${creatorHint}
 
 Aufgabe:
-Roaste beide Personen mit genau einem kurzen, natürlich gesprochenen Satz.
-Der Roast soll spezifisch klingen und nicht generisch.
+Formuliere genau einen kurzen, natürlich gesprochenen Satz für die beiden.
+Er darf freundlich begrüßen, Gaming-Glück wünschen, nach einer gemeinsamen Runde fragen oder leicht roasten.
+Klinge wie ein echter Bro im Call und nicht wie ein Comedy-Autor.
 `;
     }
 
@@ -125,10 +137,12 @@ ${target}
 
 Andere im Channel:
 ${others || 'niemand extra genannt'}
+${creatorHint}
 
 Aufgabe:
-Roaste nur die neu gejointe Person mit genau einem kurzen, natürlich gesprochenen Satz.
-Der Roast soll spezifisch klingen und nicht generisch.
+Formuliere genau einen kurzen, persönlichen Voice-Satz für die neu gejointe Person.
+Du darfst sie willkommen heißen, ihr Gaming-Glück wünschen, nach dem Zocken fragen oder sie leicht dissen.
+Der Satz soll spontan, warm und witzig klingen, nicht wie eine generische Begrüßung.
 `;
 }
 
@@ -137,10 +151,13 @@ function describeInteractionType(type: VoiceRoastInteractionType): string {
         blame: 'Es geht darum, wer Schuld an der aktuellen Voice-Situation ist.',
         mainCharacter: 'Es geht darum, wer sich für den Main Character hält.',
         warningLabel: 'Es geht darum, wer einen Warnhinweis verdient hätte.',
-        oneWord: 'Die Personen sollten den Channel mit einem Wort beschreiben.',
-        rescue: 'Es geht darum, ob der Bot helfen oder das Chaos nur dokumentieren soll.',
-        confidence: 'Es geht um peinlich überhöhtes Selbstbewusstsein.',
-        groupProject: 'Es geht darum, wer in einem Gruppenprojekt am wenigsten beitragen würde.',
+        oneWord: 'Die Personen sollten ihre aktuelle Gaming-Form oder den Channel mit einem Wort beschreiben.',
+        rescue: 'Es geht darum, ob der Bot motivieren oder das Chaos nur dokumentieren soll.',
+        confidence: 'Es geht um selbstbewusstes Auftreten, gern mit einem kleinen freundlichen Diss.',
+        groupProject: 'Es geht darum, welche Rolle die Person im Squad oder Team einnimmt.',
+        friendlyWelcome: 'Es ist eine persönliche, freundliche Begrüßung mit leichter Bro-Energie.',
+        gamingWish: 'Der Bot hat der Person Glück, Headshots oder eine gute Gaming-Runde gewünscht.',
+        playAgain: 'Der Bot hat gefragt, ob heute wieder gemeinsam gezockt wird.',
     };
 
     return descriptions[type];
@@ -180,10 +197,10 @@ Gehörte Antwort von ${speakerName ?? 'niemandem'}:
 "${heardText || 'keine verständliche Antwort'}"
 
 Aufgabe:
-Schreibe genau EINEN kurzen Konter.
-Wenn jemand geantwortet hat, nutze die Antwort als Vorlage für den Witz.
-Wenn niemand verständlich geantwortet hat, mache dich über die ausbleibende Antwort lustig.
-Der Konter soll kreativ sein und nicht nur sagen, dass jemand langweilig ist oder das Niveau sinkt.
+Schreibe genau EINE kurze, natürliche Voice-Reaktion.
+Wenn jemand geantwortet hat, gehe konkret auf die Antwort ein.
+Bei freundlichen oder gamingbezogenen Fragen darfst du motivieren, zustimmen, nachhaken oder einen kleinen passenden Diss einbauen.
+Wenn niemand verständlich geantwortet hat, reagiere locker auf die Stille, ohne unnötig hart zu werden.
 Keine Erklärung.
 Keine Anführungszeichen.
 `;
@@ -194,9 +211,9 @@ function fallback(plan: VoiceRoastPlan): string {
         const names = plan.targets.map((m) => m.displayName).join(' und ');
 
         const lines = [
-            `${names}, ihr wirkt wie ein Gruppenchat, der aus Versehen Ton bekommen hat.`,
-            `${names}, das ist kein Voice-Channel mehr, das ist ein soziales Experiment mit schlechter Verbindung.`,
-            `${names}, ich höre zwei Menschen und trotzdem fehlt mir eine sinnvolle Entscheidung.`,
+            `${names}, schön euch zu sehen; möge euer Aim heute besser sein als eure gemeinsame Planung.`,
+            `${names}, zocken wir heute wieder oder ist das hier nur sehr aufwendiges digitales Rumstehen?`,
+            `${names}, ich wünsche euch Headshots, Geduld und mindestens eine vernünftige Entscheidung.`,
         ];
 
         return lines[Math.floor(Math.random() * lines.length)];
@@ -205,9 +222,9 @@ function fallback(plan: VoiceRoastPlan): string {
     const name = plan.targets[0]?.displayName ?? 'Unbekannt';
 
     const lines = [
-        `${name} kommt rein und klingt direkt wie ein Update, das keiner installieren wollte.`,
-        `${name}, dein Timing ist beeindruckend. Nicht gut, aber beeindruckend.`,
-        `${name} ist jetzt da. Der Channel hat ab sofort Nebenwirkungen.`,
+        `Hey ${name}, schön dass du da bist; ich wünsche dir heute verdächtig viele Headshots.`,
+        `${name}, zocken wir heute wieder oder sammelst du nur dekorativ Voice-Minuten?`,
+        `${name} ist da; jetzt fehlt eigentlich nur noch ein Plan mit Überlebenschance.`,
     ];
 
     return lines[Math.floor(Math.random() * lines.length)];
@@ -225,9 +242,9 @@ function reactionFallback(input: {
         const names = plan.targets.map((m) => m.displayName).join(' und ');
 
         const lines = [
-            `${names}, keine Antwort. Selbst eure Spontanität ist im Ladebildschirm.`,
-            `${names}, stark geschwiegen. Das war fast schon ein Eingeständnis.`,
-            `Okay, niemand sagt was. Ich werte das als kollektives Schuldbekenntnis.`,
+            `${names}, keine Antwort; ihr seid offenbar schon vollständig im Konzentrationsmodus.`,
+            `${names}, stark geschwiegen; ich werte das als leise Zustimmung mit Ping.`,
+            `Okay, niemand sagt was; dann wünsche ich euch einfach Glück und ungewöhnlich brauchbares Aim.`,
         ];
 
         return lines[Math.floor(Math.random() * lines.length)];
@@ -263,6 +280,18 @@ function reactionFallback(input: {
         groupProject: [
             `${name}, du klingst wie jemand, der im Gruppenprojekt nur die Schriftart auswählt.`,
             `${name}, bei dir riecht Gruppenarbeit direkt nach 'ich mach später'.`,
+        ],
+        friendlyWelcome: [
+            `${name}, willkommen Bro; jetzt fehlt nur noch ein Spiel und eine halbwegs überzeugende Motivation.`,
+            `${name}, schön dass du da bist; ich gebe deinem heutigen Aim vorsichtig Vertrauensvorschuss.`,
+        ],
+        gamingWish: [
+            `${name}, dann wünsche ich dir Aim, Geduld und Teammates mit eingeschaltetem Gehirn.`,
+            `${name}, viel Erfolg; mögen deine Headshots zahlreicher sein als deine Ausreden.`,
+        ],
+        playAgain: [
+            `${name}, das klingt fast nach einer Zusage; ich bereite schon mal die Matchmaking-Ausreden vor.`,
+            `${name}, stark; dann brauchen wir nur noch ein Spiel und jemanden mit einem Plan.`,
         ],
     };
 

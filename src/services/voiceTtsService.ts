@@ -12,13 +12,31 @@ if (!apiKey) {
 const openai = new OpenAI({apiKey});
 
 const TTS_MODEL = process.env.OPENAI_TTS_MODEL?.trim() || 'gpt-4o-mini-tts';
-const TTS_VOICE = process.env.OPENAI_TTS_VOICE?.trim() || 'onyx';
+const TTS_VOICE = process.env.OPENAI_TTS_VOICE?.trim() || 'cedar';
 
 function normalizeForSpeech(text: string): string {
     return text
         .replace(/[^\p{L}\p{N}\s.,!?-]/gu, '')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function buildSpeechInstructions(): string {
+    return `
+Sprich auf Deutsch wie ein guter Freund in einem lockeren Discord-Call.
+
+Stimme und Vortrag:
+- warm, lässig und selbstbewusst
+- natürlich und spontan, nicht wie ein Assistent oder Nachrichtensprecher
+- mittleres bis leicht schnelles Tempo
+- abwechslungsreiche Intonation
+- ein leichtes hörbares Grinsen in der Stimme
+- kurze natürliche Pausen zwischen Gedanken
+- Namen leicht betonen
+- Pointen trocken aussprechen, nicht übertrieben spielen
+- keine monotone Roboterstimme
+- keine künstlich perfekte Werbesprecher-Aussprache
+`;
 }
 
 function buildTempFilePath(): string {
@@ -48,6 +66,7 @@ export async function generateSpeechFile(text: string): Promise<string> {
         model: TTS_MODEL,
         voice: TTS_VOICE,
         input: cleanedText,
+        instructions: buildSpeechInstructions(),
     });
 
     const buffer = Buffer.from(await response.arrayBuffer());

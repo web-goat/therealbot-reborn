@@ -14,7 +14,10 @@ export type VoiceRoastInteractionType =
     | 'oneWord'
     | 'rescue'
     | 'confidence'
-    | 'groupProject';
+    | 'groupProject'
+    | 'friendlyWelcome'
+    | 'gamingWish'
+    | 'playAgain';
 
 interface VoiceRoastMemory {
     lastTriggeredAt: number;
@@ -93,66 +96,113 @@ function getJoinedHumanMember(
 function buildInteractionIntro(plan: VoiceRoastPlan): VoiceInteractionIntro {
     const names = plan.targets.map((member) => member.displayName).join(' und ');
     const target = plan.targets[0]?.displayName ?? 'Unbekannt';
+    const creatorId = process.env.CREATOR_ID?.trim();
+    const creatorTarget = creatorId
+        ? plan.targets.find((member) => member.id === creatorId) ?? null
+        : null;
+
+    if (creatorTarget) {
+        const creatorIntros: VoiceInteractionIntro[] = [
+            {
+                type: 'friendlyWelcome',
+                text: `Mein Schöpfer ${creatorTarget.displayName} ist da. Soll ich mich benehmen oder spielen wir wieder?`,
+            },
+            {
+                type: 'gamingWish',
+                text: `${creatorTarget.displayName}, ich wünsche dir heute so viele Headshots, dass selbst dein Crosshair kurz Respekt bekommt. Was wird gezockt?`,
+            },
+            {
+                type: 'playAgain',
+                text: `${creatorTarget.displayName}, großer Erbauer, zocken wir heute wieder oder bist du nur zur Kontrolle meiner Existenz hier?`,
+            },
+        ];
+
+        return randomItem(creatorIntros);
+    }
 
     const duoIntros: VoiceInteractionIntro[] = [
         {
+            type: 'friendlyWelcome',
+            text: `${names}, schön euch zu sehen. Seid ihr heute zum Gewinnen da oder nur für gemeinsames Character Development?`,
+        },
+        {
+            type: 'gamingWish',
+            text: `${names}, ich wünsche euch heute mehr Headshots als Ausreden. Was wird gezockt?`,
+        },
+        {
+            type: 'playAgain',
+            text: `${names}, zocken wir heute wieder zusammen oder seid ihr nur zum digitalen Rumstehen hier?`,
+        },
+        {
             type: 'blame',
-            text: `${names}. Wer von euch ist verantwortlich dafür, dass ich jetzt hier reinkommen musste?`,
+            text: `${names}, wer von euch ist verantwortlich dafür, dass ich jetzt hier reinkommen musste?`,
         },
         {
             type: 'mainCharacter',
-            text: `${names}. Wer von euch glaubt ernsthaft, hier der Main Character zu sein?`,
+            text: `${names}, wer von euch glaubt heute ernsthaft, hier der Main Character zu sein?`,
         },
         {
             type: 'warningLabel',
-            text: `${names}. Wer von euch hätte in diesem Voice am ehesten einen Warnhinweis verdient?`,
+            text: `${names}, wer von euch hätte in diesem Voice am ehesten einen Warnhinweis verdient?`,
         },
         {
             type: 'oneWord',
-            text: `${names}. Beschreibt diesen Channel mal mit genau einem Wort.`,
+            text: `${names}, beschreibt eure heutige Gaming-Form mal mit genau einem Wort.`,
         },
         {
             type: 'rescue',
-            text: `${names}. Soll ich euch retten oder einfach dokumentieren, wie es schlimmer wird?`,
+            text: `${names}, soll ich euch heute motivieren oder direkt dokumentieren, wie es eskaliert?`,
         },
         {
             type: 'confidence',
-            text: `${names}. Wer von euch hat heute das gefährlichste Selbstbewusstsein mitgebracht?`,
+            text: `${names}, wer von euch hat heute das gefährlichste Selbstbewusstsein mitgebracht?`,
         },
         {
             type: 'groupProject',
-            text: `${names}. Wer von euch wäre im Gruppenprojekt der Grund, warum alle heimlich alleine weiterarbeiten?`,
+            text: `${names}, wer von euch wäre im Squad der Grund, warum alle heimlich einen Ersatz suchen?`,
         },
     ];
 
     const newcomerIntros: VoiceInteractionIntro[] = [
+        {
+            type: 'friendlyWelcome',
+            text: `Hey ${target}, schön dass du da bist. Bist du heute zum Gewinnen hier oder wieder für Character Development?`,
+        },
+        {
+            type: 'gamingWish',
+            text: `Hey ${target}, ich wünsche dir heute so viele Headshots, dass selbst dein Crosshair kurz stolz auf dich ist. Was wird gezockt?`,
+        },
+        {
+            type: 'playAgain',
+            text: `${target}, zocken wir heute eigentlich wieder oder sammelst du nur dekorativ Voice-Minuten?`,
+        },
         {
             type: 'blame',
             text: `${target}, bist du freiwillig hier reingekommen oder hat dich jemand geschickt?`,
         },
         {
             type: 'mainCharacter',
-            text: `${target}, kurze Frage: Kommst du als Main Character rein oder eher als Nebenquest?`,
+            text: `${target}, kommst du heute als Main Character rein oder eher als überraschend laute Nebenquest?`,
         },
         {
             type: 'warningLabel',
-            text: `${target}, welchen Warnhinweis müsste Discord anzeigen, bevor du einem Voice joinst?`,
+            text: `${target}, welchen Warnhinweis müsste Discord heute anzeigen, bevor du einem Voice joinst?`,
         },
         {
             type: 'oneWord',
-            text: `${target}, beschreib deinen Einstieg hier mal mit einem Wort.`,
+            text: `${target}, beschreib deine heutige Gaming-Form mal mit einem Wort.`,
         },
         {
             type: 'rescue',
-            text: `${target}, brauchst du Hilfe oder soll ich einfach zusehen, wie du dich einordnest?`,
+            text: `${target}, brauchst du heute Motivation oder soll ich einfach zusehen, wie du dich einordnest?`,
         },
         {
             type: 'confidence',
-            text: `${target}, wie viel Selbstbewusstsein bringst du mit und ist davon irgendwas berechtigt?`,
+            text: `${target}, wie viel Selbstbewusstsein bringst du heute mit und ist davon irgendwas berechtigt?`,
         },
         {
             type: 'groupProject',
-            text: `${target}, wärst du im Gruppenprojekt eher Hilfe oder nur im Dokument eingetragen?`,
+            text: `${target}, wärst du heute im Squad eher Carry oder nur zuverlässig im Voice anwesend?`,
         },
     ];
 
@@ -163,12 +213,12 @@ function buildFallbackRoastText(plan: VoiceRoastPlan): string {
     if (plan.mode === 'duo') {
         const names = plan.targets.map((member) => member.displayName).join(' und ');
 
-        return `${names}, ihr wirkt wie ein Gruppenchat, der aus Versehen Ton bekommen hat.`;
+        return `${names}, schön euch zu sehen. Möge euer Aim heute besser sein als eure gemeinsame Planung.`;
     }
 
     const name = plan.targets[0]?.displayName ?? 'Unbekannt';
 
-    return `${name} kommt rein und klingt direkt wie ein Update, das keiner installieren wollte.`;
+    return `Hey ${name}, schön dass du da bist. Ich wünsche dir heute verdächtig viele Headshots.`;
 }
 
 function buildFallbackReactionText(
@@ -181,9 +231,9 @@ function buildFallbackReactionText(
         const names = plan.targets.map((member) => member.displayName).join(' und ');
 
         return randomItem([
-            `${names}, keine Antwort. Selbst eure Spontanität ist im Ladebildschirm.`,
-            `${names}, stark geschwiegen. Das war fast schon ein Eingeständnis.`,
-            `Okay, niemand sagt was. Ich werte das als kollektives Schuldbekenntnis.`,
+            `${names}, keine Antwort. Ihr seid offenbar schon vollständig im Konzentrationsmodus.`,
+            `${names}, stark geschwiegen. Ich werte das als leise Zustimmung mit Ping.`,
+            `Okay, niemand sagt was. Dann wünsche ich euch einfach Glück und ungewöhnlich brauchbares Aim.`,
         ]);
     }
 
@@ -217,6 +267,18 @@ function buildFallbackReactionText(
         groupProject: [
             `${name}, du klingst wie jemand, der im Gruppenprojekt nur die Schriftart auswählt.`,
             `${name}, bei dir riecht Gruppenarbeit direkt nach 'ich mach später'.`,
+        ],
+        friendlyWelcome: [
+            `${name}, schön dass du antwortest. Jetzt wirkt dein Join fast wie eine bewusste Entscheidung.`,
+            `${name}, willkommen Bro. Die Motivation klingt noch ausbaufähig, aber du bist immerhin da.`,
+        ],
+        gamingWish: [
+            `${name}, klingt gut. Ich wünsche dir Aim, Geduld und ausnahmsweise brauchbare Teammates.`,
+            `${name}, dann viel Erfolg. Mögen deine Headshots zahlreicher sein als deine Ausreden.`,
+        ],
+        playAgain: [
+            `${name}, das werte ich als fast überzeugende Zusage. Ich halte schon mal die Ausreden bereit.`,
+            `${name}, stark. Dann fehlt nur noch ein Plan und ungefähr vier Prozent mehr Motivation.`,
         ],
     };
 
